@@ -31,6 +31,3 @@ if (!exists("fpa_clean")) {
     system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
   }
 }
-
-system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
-
