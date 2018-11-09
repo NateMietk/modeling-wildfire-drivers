@@ -1,15 +1,15 @@
 
 # Import ancillary data
 # Railrods
-if (!exists("rail_rds")) {
-  if (!file.exists(file.path(transportation_processed_dir, "rail_rds.gpkg"))) {
-    rail_rds <- sf::st_read(dsn = file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'), layer = 'Rails') %>%
+if (!exists("railroads")) {
+  if (!file.exists(file.path(transportation_processed_dir, "railroads.gpkg"))) {
+    railroads <- sf::st_read(dsn = file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'), layer = 'Rails') %>%
       sf::st_transform(p4string_ea) %>%
       sf::st_intersection(., usa_shp) %>%
       dplyr::mutate(bool_rrds = 1)
     
-    sf::st_write(rail_rds,
-                 file.path(anthro_dir, "rail_rds.gpkg"),
+    sf::st_write(railroads,
+                 file.path(anthro_dir, "railroads.gpkg"),
                  driver = "GPKG",
                  update=TRUE,
                  delete_dsn=TRUE)
@@ -19,22 +19,21 @@ if (!exists("rail_rds")) {
                   s3_proc_prefix, "transportation/processed"))
   } else {
     
-    rail_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "rail_rds.gpkg"))
+    railroads <- sf::st_read(dsn = file.path(transportation_processed_dir, "railroads.gpkg"))
   }
 }
 
-
 # Power transmission lines
-if (!exists("tl")) {
-  if (!file.exists(file.path(transportation_processed_dir, "power_lines.gpkg"))) {
-    tl <- sf::st_read(dsn = file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')) %>%
+if (!exists("transmission_lines")) {
+  if (!file.exists(file.path(transportation_processed_dir, "transmission_lines.gpkg"))) {
+    transmission_lines <- sf::st_read(dsn = file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')) %>%
       sf::st_transform(p4string_ea) %>%
       sf::st_intersection(., usa_shp) %>%
       dplyr::mutate(bool_tl = 1) %>%
       dplyr::filter(st_is(., c("LINESTRING")))
     
-    sf::st_write(tl,
-                 file.path(anthro_dir, "power_lines.gpkg"),
+    sf::st_write(transmission_lines,
+                 file.path(anthro_dir, "transmission_lines.gpkg"),
                  driver = "GPKG")
     
     system(paste0("aws s3 sync ",
@@ -42,7 +41,7 @@ if (!exists("tl")) {
                   s3_proc_prefix, "transportation/processed"))
   } else {
     
-    tl <- sf::st_read(dsn = file.path(transportation_processed_dir, "power_lines.gpkg"))
+    transmission_lines <- sf::st_read(dsn = file.path(transportation_processed_dir, "transmission_lines.gpkg"))
   }
 }
 
@@ -108,6 +107,7 @@ if (!exists("tertiary_rds")) {
     
     tertiary_rds <- rds %>%
       dplyr::filter(MTFCC == "S1400") %>%
+      dplyr::select(LINEARID, STUSPS) %>%
       sf::st_transform(p4string_ea) %>%
       sf::st_intersection(., usa_shp) %>%
       dplyr::mutate(bool_trds = 1)
@@ -115,16 +115,13 @@ if (!exists("tertiary_rds")) {
     rm(rds)
     gc()
     
-    sf::st_write(tertiary_rds,
-                 file.path(transportation_processed_dir, "tertiary_rds.gpkg"),
-                 driver = "GPKG")
+    sf::st_write(tertiary_rds, file.path(transportation_processed_dir, "tertiary_rds.gpkg"),
+                 driver = "GPKG", delete_layer = TRUE)
     
-    system(paste0("aws s3 sync ",
-                  transportation_processed_dir, " ",
+    system(paste0("aws s3 sync ", transportation_processed_dir, " ",
                   s3_proc_prefix, "transportation/processed"))
     
   } else {
-    
-    tertiary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds.gpkg"))
+    tertiary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds.gpkg")) 
   }
 }

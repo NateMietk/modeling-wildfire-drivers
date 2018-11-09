@@ -1,5 +1,4 @@
 
-
 # List all decadal tiffs from the CIESIN gridded census products
 anthro_list <- list.files(
   file.path(anthro_dir, 'gridded_census'),
