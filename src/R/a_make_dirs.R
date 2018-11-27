@@ -1,9 +1,16 @@
 
 # load all ibraries
-x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply',
+packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply',
        'parallel', 'foreach', "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 'velox')
-lapply(x, library, character.only = TRUE, verbose = FALSE)
-
+if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+  # automatically installs packages if not found
+  install.packages(setdiff(packages, rownames(installed.packages())))  
+  # loads the library once installed
+  lapply(packages, library, character.only = TRUE, quietly = TRUE) 
+} else {
+  # if package is already install this loads it
+  lapply(packages, library, character.only = TRUE, quietly = TRUE) 
+}
 # load all functions
 source('src/functions/helper_functions.R')
 
