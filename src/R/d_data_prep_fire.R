@@ -1,12 +1,12 @@
 # Load and process FPA-FOD wildfire iginition data
 if (!exists("fpa_clean")) {
-  if (file.exists(file.path(processed_dir, "fpa_clean.gpkg"))){
+  if (file.exists(file.path(proc_fire_dir, "fpa_clean.gpkg"))){
     
-    fpa_clean <- st_read(file.path(processed_dir, "fpa_clean.gpkg"))
+    fpa_clean <- st_read(file.path(proc_fire_dir, "fpa_clean.gpkg"))
     
   } else {
     if (!exists("fpa")) {
-      fpa <- sf::st_read(dsn = file.path(fpa_prefix, "Data", "FPA_FOD_20170508.gdb"),
+      fpa <- sf::st_read(dsn = file.path(raw_fpa, "Data", "FPA_FOD_20170508.gdb"),
                          layer = "Fires", quiet= FALSE) %>%
         sf::st_transform(st_crs(usa_shp)) %>%
         sf::st_intersection(., st_union(usa_shp))
@@ -26,8 +26,8 @@ if (!exists("fpa_clean")) {
                     year_month_day = floor_date(ymd(DISCOVERY_DATE), "month")) %>%
       rename_all(tolower)
     
-    sf::st_write(fpa_clean, file.path(processed_dir, "fpa_clean.gpkg"), driver = "GPKG", delete_layer = TRUE)
+    sf::st_write(fpa_clean, file.path(proc_fire_dir, "fpa_clean.gpkg"), driver = "GPKG", delete_layer = TRUE)
     
-    system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
+    system(paste0("aws s3 sync ", proc_fire_dir, " ", s3_proc_prefix))
   }
 }

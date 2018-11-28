@@ -2,7 +2,7 @@
 # Import ancillary data
 # Railrods
 if (!exists("railroads")) {
-  if (!file.exists(file.path(transportation_processed_dir, "railroads.gpkg"))) {
+  if (!file.exists(file.path(proc_transportation_dir, "railroads.gpkg"))) {
     railroads <- sf::st_read(dsn = file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'), layer = 'Rails') %>%
       sf::st_transform(p4string_ea) %>%
       sf::st_intersection(., usa_shp) %>%
@@ -15,17 +15,17 @@ if (!exists("railroads")) {
                  delete_dsn=TRUE)
     
     system(paste0("aws s3 sync ",
-                  transportation_processed_dir, " ",
+                  proc_transportation_dir, " ",
                   s3_proc_prefix, "transportation/processed"))
   } else {
     
-    railroads <- sf::st_read(dsn = file.path(transportation_processed_dir, "railroads.gpkg"))
+    railroads <- sf::st_read(dsn = file.path(proc_transportation_dir, "railroads.gpkg"))
   }
 }
 
 # Power transmission lines
 if (!exists("transmission_lines")) {
-  if (!file.exists(file.path(transportation_processed_dir, "transmission_lines.gpkg"))) {
+  if (!file.exists(file.path(proc_transportation_dir, "transmission_lines.gpkg"))) {
     transmission_lines <- sf::st_read(dsn = file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')) %>%
       sf::st_transform(p4string_ea) %>%
       sf::st_intersection(., usa_shp) %>%
@@ -37,17 +37,17 @@ if (!exists("transmission_lines")) {
                  driver = "GPKG")
     
     system(paste0("aws s3 sync ",
-                  transportation_processed_dir, " ",
+                  proc_transportation_dir, " ",
                   s3_proc_prefix, "transportation/processed"))
   } else {
     
-    transmission_lines <- sf::st_read(dsn = file.path(transportation_processed_dir, "transmission_lines.gpkg"))
+    transmission_lines <- sf::st_read(dsn = file.path(proc_transportation_dir, "transmission_lines.gpkg"))
   }
 }
 
 # Primary Roads
 if (!exists("primary_rds")) {
-  if (!file.exists(file.path(transportation_processed_dir, "primary_rds.gpkg"))) {
+  if (!file.exists(file.path(proc_transportation_dir, "primary_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <- sf::st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
     }
@@ -59,21 +59,21 @@ if (!exists("primary_rds")) {
       dplyr::mutate(bool_prds = 1)
     
     sf::st_write(primary_rds,
-                 file.path(transportation_processed_dir, "primary_rds.gpkg"),
+                 file.path(proc_transportation_dir, "primary_rds.gpkg"),
                  driver = "GPKG")
     
     system(paste0("aws s3 sync ",
-                  transportation_processed_dir, " ",
+                  proc_transportation_dir, " ",
                   s3_proc_prefix, "transportation/processed"))
   } else {
     
-    primary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "primary_rds.gpkg"))
+    primary_rds <- sf::st_read(dsn = file.path(proc_transportation_dir, "primary_rds.gpkg"))
   }
 }
 
 # Secondary roads
 if (!exists("secondary_rds")) {
-  if (!file.exists(file.path(transportation_processed_dir, "secondary_rds.gpkg"))) {
+  if (!file.exists(file.path(proc_transportation_dir, "secondary_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <- sf::st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
     }
@@ -86,21 +86,21 @@ if (!exists("secondary_rds")) {
     
     
     sf::st_write(secondary_rds,
-                 file.path(transportation_processed_dir, "secondary_rds.gpkg"),
+                 file.path(proc_transportation_dir, "secondary_rds.gpkg"),
                  driver = "GPKG")
     
     system(paste0("aws s3 sync ",
-                  transportation_processed_dir, " ",
+                  proc_transportation_dir, " ",
                   s3_proc_prefix, "transportation/processed"))
   } else {
     
-    secondary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "secondary_rds.gpkg"))
+    secondary_rds <- sf::st_read(dsn = file.path(proc_transportation_dir, "secondary_rds.gpkg"))
   }
 }
 
 # Tertiary roads
 if (!exists("tertiary_rds")) {
-  if (!file.exists(file.path(transportation_processed_dir, "tertiary_rds.gpkg"))) {
+  if (!file.exists(file.path(proc_transportation_dir, "tertiary_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <- sf::st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
     }
@@ -115,13 +115,13 @@ if (!exists("tertiary_rds")) {
     rm(rds)
     gc()
     
-    sf::st_write(tertiary_rds, file.path(transportation_processed_dir, "tertiary_rds.gpkg"),
+    sf::st_write(tertiary_rds, file.path(proc_transportation_dir, "tertiary_rds.gpkg"),
                  driver = "GPKG", delete_layer = TRUE)
     
-    system(paste0("aws s3 sync ", transportation_processed_dir, " ",
+    system(paste0("aws s3 sync ", proc_transportation_dir, " ",
                   s3_proc_prefix, "transportation/processed"))
     
   } else {
-    tertiary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds.gpkg")) 
+    tertiary_rds <- sf::st_read(dsn = file.path(proc_transportation_dir, "tertiary_rds.gpkg")) 
   }
 }
