@@ -21,70 +21,73 @@ p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=637
 ncor <- parallel::detectCores()
 
 # create main directories
-prefix <- ("data")
-summary_dir <- file.path(prefix, "extractions")
-processed_dir <- file.path(prefix, 'processed')
+data_dir <- ("data")
+extraction_dir <- file.path(data_dir, "extractions")
+processed_dir <- file.path(data_dir, 'processed')
+climate_prefix <- file.path(data_dir, "climate")
+bounds_dir <- file.path(data_dir, 'bounds')
+anthro_dir <- file.path(data_dir, "anthro")
+
+var_dir <- list(data_dir, extraction_dir, processed_dir, climate_prefix, bounds_dir, anthro_dir)
+lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
 # create main raw folder and all subfolders to hold raw/unprocessed data
-raw_prefix <- file.path(prefix, "raw")
-us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
-ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
-ecoregionl4_prefix <- file.path(raw_prefix, "us_eco_l4")
-fpa_prefix <- file.path(raw_prefix, "fpa-fod")
-roads_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_roads")
-rails_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_rails")
-landcover_dir <- file.path(raw_prefix, 'landcover')
-
-pd_prefix <- file.path(raw_prefix, "county_pop")
-iclus_prefix <- file.path(raw_prefix, 'housing_den')
-elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
-tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
-climate_prefix <- file.path(prefix, "climate")
-bounds_dir <- file.path(prefix, 'bounds')
+raw_dir <- file.path(data_dir, "raw")
+raw_us <- file.path(raw_dir, "cb_2016_us_state_20m")
+raw_ecoregionl3 <- file.path(raw_dir, "us_eco_l3")
+raw_ecoregionl4 <- file.path(raw_dir, "us_eco_l4")
+raw_fpa <- file.path(raw_dir, "fpa-fod")
+raw_roads <- file.path(raw_dir, "tlgdb_2015_a_us_roads")
+raw_rails <- file.path(raw_dir, "tlgdb_2015_a_us_rails")
+raw_landcover <- file.path(raw_dir, 'landcover')
+raw_pd <- file.path(raw_dir, "county_pop")
+raw_iclus <- file.path(raw_dir, 'housing_den')
+raw_elev <- file.path(raw_dir, 'metdata_elevationdata')
+raw_tl <- file.path(raw_dir, 'Electric_Power_Transmission_Lines')
+var_dir <- list(raw_dir, raw_us, raw_ecoregionl3, raw_ecoregionl4, raw_fpa, raw_roads, raw_rails, 
+                raw_landcover, raw_pd, raw_iclus, raw_elev, raw_tl)
+lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
 # create processed directories
-terrain_dir <- file.path(processed_dir, 'terrain')
-anthro_proc_dir <- file.path(processed_dir, 'anthro')
-transportation_dir <- file.path(processed_dir, 'transportation')
-transportation_density_dir <- file.path(transportation_dir, 'density')
-transportation_processed_dir <- file.path(transportation_dir, 'processed')
-transportation_dist_dir <- file.path(transportation_dir, 'distance')
+proc_terrain_dir <- file.path(processed_dir, 'terrain')
+proc_anthro_dir <- file.path(processed_dir, 'anthro')
+proc_transportation_dir <- file.path(processed_dir, 'transportation')
+proc_tertiary_states <- file.path(transportation_density_dir, "tertiary_states")
 proc_gridded_census <- file.path(anthro_proc_dir, 'gridded_census')
-per_state <- file.path(transportation_density_dir, "per_state")
 proc_bounds_dir <- file.path(processed_dir, 'bounds')
+proc_fire_dir <- file.path(processed_dir, 'bounds')
 
-# create direcotires to hold climate summary outputs
-summaries_dir <- file.path(summary_dir, "climate_extractions")
-summary_mean <- file.path(summaries_dir, "mean")
-summary_95th <- file.path(summaries_dir, "95th")
-summary_numdays95th <- file.path(summaries_dir, "numdays95th")
-terrain_extract <- file.path(summary_dir, "terrain_extractions")
-anthro_extract <- file.path(summary_dir, "anthro_extractions")
-anthro_state_extract <- file.path(anthro_extract, "state")
+var_dir <- list(proc_terrain_dir, proc_anthro_dir, proc_transportation_dir, proc_tertiary_states, proc_gridded_census, proc_bounds_dir, proc_fire_dir)
+lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
-anthro_dir <- file.path(prefix, "anthro")
+# create directoires to hold climate extraction outputs
+extraction_climate_dir <- file.path(extraction_dir, "climate_extractions")
+extraction_mean_climate_dir <- file.path(extraction_climate_dir, "mean")
+extraction_95th_climate_dir <- file.path(extraction_climate_dir, "95th")
+extraction_numdays95th_climate_dir <- file.path(extraction_climate_dir, "numdays95th")
+extraction_terrain <- file.path(extraction_dir, "terrain_extractions")
+extraction_anthro <- file.path(extraction_dir, "anthro_extractions")
+var_dir <- list(extraction_climate_dir, extraction_mean_climate_dir, extraction_95th_climate_dir, extraction_numdays95th_climate_dir, 
+                extraction_terrain, extraction_anthro)
+lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
+
+# Create other directories
 ztrax_dir <- file.path(anthro_dir, "ztrax")
 raw_ztrax_dir <- file.path(ztrax_dir, "raw_built_up_gpkg")
 stacked_ztrax_rst_dir <- file.path(ztrax_dir, "stacked_ztrax_rst")
+wui_dir <- file.path(anthro_dir, "wui")
+var_dir <- list(ztrax_dir, raw_ztrax_dir, stacked_ztrax_rst_dir, wui_dir)
+lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
 # for pushing and pulling to s3 using the system function
-s3_base <- 's3://earthlab-modeling-human-ignitions/'
-s3_anc_prefix <- 's3://earthlab-modeling-human-ignitions/ancillary/'
-s3_proc_prefix <- 's3://earthlab-modeling-human-ignitions/processed/'
-s3_raw_prefix <- 's3://earthlab-modeling-human-ignitions/raw/'
-s3_proc_extractions <- 's3://earthlab-modeling-human-ignitions/extractions/'
-s3_proc_climate <- 's3://earthlab-modeling-human-ignitions/climate/'
-s3_proc_bounds <- 's3://earthlab-modeling-human-ignitions/bounds/'
-s3_proc_anthro <- 's3://earthlab-modeling-human-ignitions/anthro/'
+s3_base <- 's3://modeling-human-ignition-random-forests/'
+s3_anc_prefix <- 's3://modeling-human-ignition-random-forests/ancillary/'
+s3_proc_prefix <- 's3://modeling-human-ignition-random-forests/processed/'
+s3_raw_prefix <- 's3://modeling-human-ignition-random-forests/raw/'
+s3_proc_extractions <- 's3://modeling-human-ignition-random-forests/extractions/'
+s3_proc_climate <- 's3://modeling-human-ignition-random-forests/climate/'
+s3_proc_bounds <- 's3://modeling-human-ignition-random-forests/bounds/'
+s3_proc_anthro <- 's3://modeling-human-ignition-random-forests/anthro/'
 
-# Check if directory exists for all variable aggregate outputs, if not then create
-var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix, summary_dir,
-                fpa_prefix, rails_prefix, pd_prefix, iclus_prefix, climate_prefix, elev_prefix,
-                tl_prefix, bounds_dir, anthro_dir, processed_dir, summaries_dir, summary_mean, transportation_dist_dir,
-                summary_95th, summary_numdays95th, terrain_dir, transportation_dir, anthro_proc_dir,
-                transportation_density_dir, transportation_processed_dir, anthro_dir, anthro_state_extract,
-                terrain_extract, anthro_extract, per_state,ecoregionl4_prefix, ztrax_dir, raw_ztrax_dir,
-                stacked_ztrax_rst_dir, proc_gridded_census, landcover_dir, proc_bounds_dir)
-
-lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
+system(paste0("aws s3 sync ", data_dir, " ", s3_base))
 
