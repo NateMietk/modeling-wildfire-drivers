@@ -1,3 +1,37 @@
+rasterize_shapefile <- function(shp, out_rst, 
+                                dir_rst = proc_transportation_dir, 
+                                ras_template = raster_mask) {
+  if(!file.exists(file.path(dir_rst, out_rst))) {
+    
+    pspSl <- as.psp(as(shp, 'Spatial'))
+    rastered <- raster::raster(pixellate(pspSl, eps=1000))
+    crs(rastered) <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"
+    
+    rastered <- projectRaster(from = rastered, to = ras_template, method = 'bilinear')
+    
+    writeRaster(rastered, filename= file.path(dir_rst, out_rst), format="GTiff")
+    return(rastered)
+  } else {
+    rastered <- raster(file.path(dir_rst, out_rst))
+    return(rastered)
+  }
+}
+get_density <- function(dir_pro = proc_transportation_dir, 
+                        dir_den = proc_transportation_dir,
+                        out_pro, out_den) {
+  
+  if(!file.exists(file.path(dir_den, out_den))) {
+    
+    rst_den <- raster::raster(file.path(dir_pro, out_pro))
+    rst_den <- rst_den/1000
+    writeRaster(rst_den, filename= file.path(dir_den, out_den), format="GTiff", overwrite=TRUE)
+    return(rst_den)
+  } else {
+    rst_den <- raster::raster(file.path(dir_den, out_den))
+    return(rst_den)
+  }
+}
+
 # General Helper functions
 
 split_tibble_to_list <- function (x, f, drop = FALSE, ...) {
