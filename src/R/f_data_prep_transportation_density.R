@@ -172,11 +172,9 @@ if(!file.exists(file.path(extraction_anthro, 'fpa_density_distance_to_transporta
   }
   
   fpa_slim <- fpa_clean %>%
-    dplyr::select(fpa_id, fire_year)
+    dplyr::select(fpa_id)
   
-  transportation_list <- c(railroad_density, transmission_lines_density, primary_rds_density, secondary_rds_density, tertiary_rds_density,
-                           gridded_railroad_distance, gridded_transmission_lines_distance, gridded_primary_rds_distance, 
-                           gridded_secondary_rds_distance, gridded_tertiary_rds_distance)
+  transportation_list <- c(railroad_density, transmission_lines_density, primary_rds_density, secondary_rds_density, tertiary_rds_density)
   
   transportation_extract <- velox(raster::stack(transportation_list))$extract_points(sp = fpa_slim) %>%
     as_tibble() 
@@ -185,13 +183,8 @@ if(!file.exists(file.path(extraction_anthro, 'fpa_density_distance_to_transporta
   
   fpa_transportation_wide <- as.data.frame(transportation_extract) %>%
     mutate(fpa_id = as.data.frame(fpa_slim)$fpa_id) %>%
-    mutate(gridded_railroad_distance = railroad_distance,
-           gridded_transmission_lines_distance = transmission_lines_distance,
-           gridded_primary_rds_distance = primary_rds_distance,
-           gridded_secondary_rds_distance = secondary_rds_distance,
-           gridded_tertiary_rds_distance = tertiary_rds_distance) %>%
-    dplyr::select(fpa_id, gridded_railroad_distance, gridded_transmission_lines_distance, gridded_primary_rds_distance, 
-                  gridded_secondary_rds_distance, gridded_tertiary_rds_distance) %>%
+    dplyr::select(fpa_id, railroad_density, transmission_lines_density, 
+                  primary_rds_density, secondary_rds_density, tertiary_rds_density) %>%
     left_join(as.data.frame(fpa_slim), ., by = 'fpa_id') %>%
     dplyr::select(-geom) %>%
     rename_all(tolower) %>% as_tibble() 
@@ -199,7 +192,7 @@ if(!file.exists(file.path(extraction_anthro, 'fpa_density_distance_to_transporta
   fpa_density_distance_to_transportation <- distance_to_fire %>%
     left_join(., fpa_transportation_wide, by = 'fpa_id')
   
-  st_write(fpa_density_distance_to_transportation, file.path(extraction_anthro, 'fpa_density_distance_to_transportation.gpkg'))
+  st_write(fpa_density_distance_to_transportation, file.path(extraction_anthro, 'fpa_density_distance_to_transportation.gpkg'), delete_layer = TRUE)
   
 } else {
   fpa_density_distance_to_transportation <- st_read(file.path(extraction_anthro, 'fpa_density_distance_to_transportation.gpkg'))

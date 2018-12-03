@@ -1,27 +1,28 @@
-#Import the Wildland-Urban Interface and process
-if (!exists('wui')) {
-  if (!file.exists(file.path(wui_dir, "wui_bounds.gpkg"))) {
-
-    wui <- st_read(dsn = file.path('data', 'anthro', 'wui_9010', "CONUS_WUI_cp12_d.gdb"),
-                   layer = "CONUS_WUI_cp12") %>%
-      st_transform(st_crs(usa_shp)) %>%
-      mutate(Class90 = classify_wui(WUICLASS90),
-             Class00 = classify_wui(WUICLASS00),
-             Class10 = classify_wui(WUICLASS10)) 
-    
-    st_write(wui, file.path(wui_dir, "wui_bounds.gpkg"),
-             driver = "GPKG",
-             delete_layer = TRUE)
-    system(paste0("aws s3 sync ", prefix, " ", s3_base))
-    
-  } else {
-    wui <- st_read(dsn = file.path(wui_dir, "wui_bounds.gpkg"))
-  }
-}
 
 # Spatially join the fpa database to the WUI
 if (!exists('fpa_wui')) {
   if(!file.exists(file.path(proc_fire_dir, "fpa_wui_conus.gpkg"))) {
+    #Import the Wildland-Urban Interface and process
+    if (!exists('wui')) {
+      if (!file.exists(file.path(wui_dir, "wui_bounds.gpkg"))) {
+        
+        wui <- st_read(dsn = file.path('data', 'anthro', 'wui_9010', "CONUS_WUI_cp12_d.gdb"),
+                       layer = "CONUS_WUI_cp12") %>%
+          st_transform(st_crs(usa_shp)) %>%
+          mutate(Class90 = classify_wui(WUICLASS90),
+                 Class00 = classify_wui(WUICLASS00),
+                 Class10 = classify_wui(WUICLASS10)) 
+        
+        st_write(wui, file.path(wui_dir, "wui_bounds.gpkg"),
+                 driver = "GPKG",
+                 delete_layer = TRUE)
+        system(paste0("aws s3 sync ", prefix, " ", s3_base))
+        
+      } else {
+        wui <- st_read(dsn = file.path(wui_dir, "wui_bounds.gpkg"))
+      }
+    }
+
     fpa_wui_step1 <- fpa_clean %>%
       st_intersection(., wui) %>%
       st_make_valid()

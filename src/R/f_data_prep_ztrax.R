@@ -1,7 +1,7 @@
 final_list <- list.files('data/anthro/ztrax/ztrax_raw_cumsum_1980_2015_1k', full.names = TRUE)
 
 if(length(final_list) != 37){
-  rst_list <- list.files(dir_raw_ztrax_gpkg, pattern = '.gpkg$', full.names = TRUE)
+  rst_list <- list.files(raw_ztrax_dir, pattern = '.gpkg$', full.names = TRUE)
   
   for(i in rst_list) {
     

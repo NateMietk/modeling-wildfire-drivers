@@ -30,22 +30,6 @@ if (!exists("ecoregions_l3")) {
   }
 }
 
-# Download and import the Level 4 Ecoregions data
-if (!exists("ecoregions_l4")) {
-  if(!file.exists(file.path(bounds_dir, 'us_eco_l4.gpkg'))) {
-    ecoregions_l4 <- load_data(url = "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l4.zip",
-                               dir = raw_ecoregionl4,
-                               layer = "us_eco_l4",
-                               outname = "ecoregions_l4") %>%
-      sf::st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
-      sf::st_transform(st_crs(states))
-    st_write(ecoregions_l4, file.path(bounds_dir, 'us_eco_l4.gpkg'))
-    
-  } else {
-    ecoregions_l4 <- st_read(file.path(bounds_dir, 'us_eco_l4.gpkg'))
-  }
-}
-
 # Create raster mask
 # 4k Fishnet
 # if (!exists("fishnet_4k")) {

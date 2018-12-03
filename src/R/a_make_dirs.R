@@ -11,8 +11,11 @@ if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   # if package is already install this loads it
   lapply(packages, library, character.only = TRUE, quietly = TRUE) 
 }
-# load all functions
-source('src/functions/helper_functions.R')
+
+# Load all external custom functions
+file_sources <- list.files(file.path('src', 'functions'), pattern="*.R", 
+                           full.names=TRUE, ignore.case=TRUE)
+invisible(sapply(file_sources, source, .GlobalEnv))
 
 # key projections
 p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"   #http://spatialreference.org/ref/sr-org/6903/
@@ -51,13 +54,15 @@ lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALS
 # create processed directories
 proc_terrain_dir <- file.path(processed_dir, 'terrain')
 proc_anthro_dir <- file.path(processed_dir, 'anthro')
-proc_transportation_dir <- file.path(processed_dir, 'transportation')
-proc_tertiary_states <- file.path(transportation_density_dir, "tertiary_states")
-proc_gridded_census <- file.path(anthro_proc_dir, 'gridded_census')
-proc_bounds_dir <- file.path(processed_dir, 'bounds')
-proc_fire_dir <- file.path(processed_dir, 'bounds')
+proc_landcover_dir <- file.path(proc_anthro_dir, 'landcover')
 
-var_dir <- list(proc_terrain_dir, proc_anthro_dir, proc_transportation_dir, proc_tertiary_states, proc_gridded_census, proc_bounds_dir, proc_fire_dir)
+proc_transportation_dir <- file.path(processed_dir, 'transportation')
+proc_tertiary_states <- file.path(proc_transportation_dir, "tertiary_states")
+proc_gridded_census <- file.path(proc_anthro_dir, 'gridded_census')
+proc_bounds_dir <- file.path(processed_dir, 'bounds')
+proc_fire_dir <- file.path(processed_dir, 'fire')
+
+var_dir <- list(proc_terrain_dir, proc_anthro_dir, proc_landcover_dir,proc_transportation_dir, proc_tertiary_states, proc_gridded_census, proc_bounds_dir, proc_fire_dir)
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
 # create directoires to hold climate extraction outputs
@@ -75,8 +80,11 @@ lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALS
 ztrax_dir <- file.path(anthro_dir, "ztrax")
 raw_ztrax_dir <- file.path(ztrax_dir, "raw_built_up_gpkg")
 stacked_ztrax_rst_dir <- file.path(ztrax_dir, "stacked_ztrax_rst")
+count_ztrax_rst_dir <- file.path(ztrax_dir, "ztrax_raw_count_1980_2015_1k")
 wui_dir <- file.path(anthro_dir, "wui")
-var_dir <- list(ztrax_dir, raw_ztrax_dir, stacked_ztrax_rst_dir, wui_dir)
+landcover_dir <- file.path(anthro_dir, "landcover")
+
+var_dir <- list(ztrax_dir, raw_ztrax_dir, stacked_ztrax_rst_dir, wui_dir, landcover_dir)
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
 # for pushing and pulling to s3 using the system function
@@ -89,5 +97,4 @@ s3_proc_climate <- 's3://modeling-human-ignition-random-forests/climate/'
 s3_proc_bounds <- 's3://modeling-human-ignition-random-forests/bounds/'
 s3_proc_anthro <- 's3://modeling-human-ignition-random-forests/anthro/'
 
-system(paste0("aws s3 sync ", data_dir, " ", s3_base))
 

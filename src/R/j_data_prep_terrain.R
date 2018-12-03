@@ -8,7 +8,7 @@
   
   elev_files <- list.files(file.path(raw_dir, 'gtopo30'), pattern = '.tif', full.names = TRUE)
   
-if(!file.exists(file.path(terrain_extract, 'terrain_extractions.rds'))) {
+if(!file.exists(file.path(extraction_terrain, 'extraction_terrain.rds'))) {
   if (!exists("elevation")) {
     if (!file.exists(file.path(proc_terrain_dir, 'elevation.tif'))) {
       
@@ -109,22 +109,22 @@ if(!file.exists(file.path(terrain_extract, 'terrain_extractions.rds'))) {
   fpa_slim <- fpa_clean %>%
     dplyr::select(fpa_id)
   
-  terrain_extract <- velox(raster::stack(terrain_list))$extract_points(sp = fpa_slim) %>%
+  extracted_terrain <- velox(raster::stack(terrain_list))$extract_points(sp = fpa_slim) %>%
     as_tibble() 
   # Rename to the raster layer names
-  colnames(terrain_extract) <- names(raster::stack(terrain_list))
+  colnames(extracted_terrain) <- names(raster::stack(terrain_list))
   
   # convert to a data frame
-  fpa_terrain <- as.data.frame(terrain_extract) %>%
+  fpa_terrain <- as.data.frame(extracted_terrain) %>%
     mutate(fpa_id = as.data.frame(fpa_slim)$fpa_id) %>%
     left_join(., as.data.frame(fpa_slim), by = 'fpa_id') %>%
     dplyr::select(-geom) %>%
     rename_all(tolower) %>% as_tibble() 
   
   # save processed/cleaned terrain extractions
-  write_rds(fpa_terrain, file.path(extraction_terrain, 'terrain_extractions.rds'))
+  write_rds(fpa_terrain, file.path(extraction_terrain, 'extraction_terrain.rds'))
   
   system(paste0("aws s3 sync ", extraction_dir, " ", s3_proc_extractions)) 
   } else {
-    fpa_terrain <- read_rds(file.path(extraction_terrain, 'terrain_extractions.rds'))
+    fpa_terrain <- read_rds(file.path(extraction_terrain, 'extraction_terrain.rds'))
   }
