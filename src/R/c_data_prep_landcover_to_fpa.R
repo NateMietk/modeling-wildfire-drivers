@@ -3,7 +3,7 @@
 # only really needed about 60 or 70 GB ram with 32 cores
 
 if(!file.exists(file.path(extraction_anthro, 'fpa_landcover.rds'))) {
-  if(!file.exists(file.path(extraction_dir, 'fpa_w_all_landcover.gpkg'))) {
+  if(!file.exists(file.path(extraction_anthro, 'fpa_w_all_landcover.gpkg'))) {
     # fpa import ---------------------------------------------------------------
     fpa <- fpa_clean %>%
       select(FPA_ID,STATE)
@@ -82,9 +82,9 @@ if(!file.exists(file.path(extraction_anthro, 'fpa_landcover.rds'))) {
       left_join(fpa_list[[6]]) %>%
       left_join(fpa_list[[7]])
     
-    st_write(final, file.path(extraction_dir, 'fpa_w_all_landcover.gpkg'))
+    st_write(final, file.path(extraction_anthro, 'fpa_w_all_landcover.gpkg'))
   } else {
-    final <- st_read(file.path(extraction_dir, 'fpa_w_all_landcover.gpkg'))
+    final <- st_read(file.path(extraction_anthro, 'fpa_w_all_landcover.gpkg'))
   }
   
   download.file('https://www.landfire.gov/CSV/ESP_08232017.csv', 

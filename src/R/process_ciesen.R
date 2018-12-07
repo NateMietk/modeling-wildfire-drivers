@@ -1,6 +1,6 @@
 
 
-if(!file.exists(file.path(extraction_anthro, 'ciesin_extraction.rds'))) {
+if(!file.exists(file.path(extraction_anthro, 'fpa_ciesen.rds'))) {
   census_list <- list.files(proc_gridded_census, pattern = '*.tif', full.names = TRUE)
   
   # Reproject all grids and mask to lower 48
@@ -46,11 +46,14 @@ if(!file.exists(file.path(extraction_anthro, 'ciesin_extraction.rds'))) {
   
   fpa_census <- as.data.frame(census_extract) %>%
     mutate(fpa_id = as.data.frame(fpa_slim)$fpa_id) %>%
-    left_join(as.data.frame(fpa_slim), ., by = 'fpa_id') %>%
-    dplyr::select(-geom) %>%
+    left_join(as.data.frame(fpa_slim) %>% dplyr::select(-geom), ., by = 'fpa_id') %>%
     rename_all(tolower) %>% as_tibble() 
   
-  extraction_vars <- fpa_census %>%
+  # Some of the extracted values have NA - convert to 0
+  fpa_census[is.na(fpa_census)] <- 0
+  
+  fpa_ciesen <- fpa_census %>%
+    # create dummy years where we need to interpolate
     mutate(
       usba10 = NA,
       usba20 = NA,
@@ -67,6 +70,7 @@ if(!file.exists(file.path(extraction_anthro, 'ciesin_extraction.rds'))) {
       ussea20 = NA
     ) %>%
     gather(variable, value,-fpa_id,-fire_year) %>%
+    #Assign meaningful year to the variable 
     mutate(
       year = case_when(
         .$variable == 'usba90' ~ 1990, # Population with a bachelors degree
@@ -103,109 +107,59 @@ if(!file.exists(file.path(extraction_anthro, 'ciesin_extraction.rds'))) {
         .$variable == 'ussea20' ~ 2020
       )
     ) %>%
-  mutate(variable = case_when(
-    grepl("usba", variable) ~ 'bachelors_degree',
-    grepl("ussevp", variable) ~ 'pop_poverty_below_50',
-    grepl("uspov", variable) ~ 'pop_poverty_below_200',
-    grepl("ushs", variable) ~ 'highschool_degree',
-    grepl("ushu", variable) ~ 'housing_units',
-    grepl("uslowi", variable) ~ 'pop_poverty_below_line',
-    grepl("uspop", variable) ~ 'population',
-    grepl("ussea", variable) ~ 'seasonal_housing_units'))
-                
-extraction_vars2 <- extraction_vars %>%
-  dplyr::mutate(yr = as.Date(as.character(year), format = "%Y"),
-                variable = as.factor(variable)) %>% 
-  dplyr::group_by(fpa_id, variable) %>%
-  dplyr::mutate(value = zoo::na.spline(object = value, x = yr, xout = yr)$y)
-
-,
-                value = case_when(value < 0 ~ 0, TRUE ~ value))  %>%
-  arrange(fpa_id, variable, year) %>%
+    # rename to meaningful names
+    mutate(variable = case_when(
+      grepl("usba", variable) ~ 'bachelors_degree',
+      grepl("ussevp", variable) ~ 'pop_poverty_below_50',
+      grepl("uspov", variable) ~ 'pop_poverty_below_200',
+      grepl("ushs", variable) ~ 'highschool_degree',
+      grepl("ushu", variable) ~ 'housing_units',
+      grepl("uslowi", variable) ~ 'pop_poverty_below_line',
+      grepl("uspop", variable) ~ 'population',
+      grepl("ussea", variable) ~ 'seasonal_housing_units')) %>%
+  dplyr::mutate(variable = as.factor(variable)) %>% 
+  dplyr::group_by(fpa_id, fire_year, variable) %>%
+  arrange(fpa_id, variable, fire_year, year) %>%
+  dplyr::mutate(value = zoo::na.spline(object = value),
+                value = case_when(value < 0 ~ 0, TRUE ~ value)) %>%
   dplyr::ungroup() %>%
+  filter(fpa_id != 'FS-1452833') %>% # Found that this record is duplicated in 2007 & 2012
   unite(year_var, variable, year) %>%
-  spread(year_var, value, fill = 0) 
-
-approx(x = df$year,
-       y = df$wmean,
-       xout = predict_seq)
-
-get_var_value <- function(x1, x2, x3) {
-  case_when(
-    year < 2000 ~ x,
-    year >= 2000 | year <= 2009 ~ x,
-    year >= 2010 ~ x, NA_real_)
-}
-
-extraction_vars3 <- extraction_vars2 %>%
-  mutate(bachelors_degree = get_var_value(bachelors_degree_1990, bachelors_degree_2000, bachelors_degree_2010))
-
-
-
-    bachelors_degree = case_when(
-      year < 2000 ~ bachelors_degree_1990,
-      year >= 2000 | year <= 2009 ~ bachelors_degree_2000,
-      year >= 2010 ~ bachelors_degree_2010, NA_real_),
+  spread(year_var, value, fill = 0) %>%
+  mutate(bachelors_degree = case_when(
+      fire_year < 2000 ~ bachelors_degree_1990,
+      fire_year >= 2000 | fire_year <= 2009 ~ bachelors_degree_2000,
+      fire_year >= 2010 ~ bachelors_degree_2010),
     highschool_degree = case_when(
-      year < 2000 ~ highschool_degree_1990,
-      year >= 2000 | year <= 2009 ~ highschool_degree_2000,
-      year >= 2010 ~ highschool_degree_2010, NA_real_),
+      fire_year < 2000 ~ highschool_degree_1990,
+      fire_year >= 2000 | fire_year <= 2009 ~ highschool_degree_2000,
+      fire_year >= 2010 ~ highschool_degree_2010),
     pop_poverty_below_50 = case_when(
-      year < 2000 ~ pop_poverty_below_50_1990,
-      year >= 2000 | year <= 2009 ~ pop_poverty_below_50_2000,
-      year >= 2010 ~ pop_poverty_below_50_2010, NA_real_),
+      fire_year < 2000 ~ pop_poverty_below_50_1990,
+      fire_year >= 2000 | fire_year <= 2009 ~ pop_poverty_below_50_2000,
+      fire_year >= 2010 ~ pop_poverty_below_50_2010),
     pop_poverty_below_200 = case_when(
-      year < 2000 ~ pop_poverty_below_200_1990,
-      year >= 2000 |
-          year(year_month_day) <= 2009,
-        pop_poverty_below_200_2000,
-        ifelse(year(year_month_day) >= 2010, pop_poverty_below_200_2010, NA)
-      )
-    ),
-    housing_units = ifelse(
-      year(year_month_day) < 2000,
-      housing_units_1990,
-      ifelse(
-        year(year_month_day) >= 2000 |
-          year(year_month_day) <= 2009,
-        housing_units_2000,
-        ifelse(year(year_month_day) >= 2010, housing_units_2010, NA)
-      )
-    ),
-    pop_poverty_below_line = ifelse(
-      year(year_month_day) < 2000,
-      pop_poverty_below_line_1990,
-      ifelse(
-        year(year_month_day) >= 2000 |
-          year(year_month_day) <= 2009,
-        pop_poverty_below_line_2000,
-        ifelse(year(year_month_day) >= 2010, pop_poverty_below_line_2010, NA)
-      )
-    ),
-    population = ifelse(
-      year(year_month_day) < 2000,
-      population_1990,
-      ifelse(
-        year(year_month_day) >= 2000 |
-          year(year_month_day) <= 2009,
-        population_2000,
-        ifelse(year(year_month_day) >= 2010, population_2010, NA)
-      )
-    ),
-    seasonal_housing_units = ifelse(
-      year(year_month_day) < 2000,
-      seasonal_housing_units_1990,
-      ifelse(
-        year(year_month_day) >= 2000 |
-          year(year_month_day) <= 2009,
-        seasonal_housing_units_2000,
-        ifelse(year(year_month_day) >= 2010, seasonal_housing_units_2010, NA)
-      )
-    )
-  ) %>%
+      fire_year < 2000 ~ pop_poverty_below_200_1990,
+      fire_year >= 2000 | fire_year <= 2009 ~ pop_poverty_below_200_2000,
+      fire_year>= 2010 ~ pop_poverty_below_200_2010),
+    housing_units = case_when(
+      fire_year < 2000 ~ housing_units_1990,
+      fire_year >= 2000 | fire_year <= 2009 ~ housing_units_2000,
+      fire_year>= 2010 ~ housing_units_2010),
+    pop_poverty_below_line = case_when(
+      fire_year < 2000 ~ pop_poverty_below_line_1990,
+      fire_year >= 2000 | fire_year <= 2009 ~ pop_poverty_below_line_2000,
+      fire_year>= 2010 ~ pop_poverty_below_line_2010),
+    population = case_when(
+      fire_year < 2000 ~ population_1990,
+      fire_year >= 2000 | fire_year <= 2009 ~ population_2000,
+      fire_year>= 2010 ~ population_2010),
+    seasonal_housing_units = case_when(
+      fire_year < 2000 ~ seasonal_housing_units_1990,
+      fire_year >= 2000 | fire_year <= 2009 ~ seasonal_housing_units_2000,
+      fire_year>= 2010 ~ seasonal_housing_units_2010)) %>%
   dplyr::select(
-    FPA_ID,
-    year_month_day,
+    fpa_id,
     population,
     bachelors_degree,
     highschool_degree,
@@ -213,14 +167,11 @@ extraction_vars3 <- extraction_vars2 %>%
     pop_poverty_below_50,
     pop_poverty_below_200,
     housing_units,
-    seasonal_housing_units
-  )
-
-extraction_vars %>%
-  write_rds(.,
-            file.path(anthro_dir, 'gridded_census', "ciesin_extraction.rds"))
-
-}
+    seasonal_housing_units)
+  write_rds(fpa_ciesen, file.path(extraction_anthro, 'fpa_ciesen.rds'))
+  } else {
+    fpa_ciesen <- read_rds(file.path(extraction_anthro, 'fpa_ciesen.rds'))
+    }
 
 
 
