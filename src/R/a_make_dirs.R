@@ -1,7 +1,7 @@
 
 # load all ibraries
 packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply',
-       'parallel', 'foreach', "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 'velox', 'caret', 'ranger')
+              'parallel', 'foreach', "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 'velox', 'caret', 'ranger')
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   # automatically installs packages if not found
   install.packages(setdiff(packages, rownames(installed.packages())))  
@@ -23,6 +23,9 @@ p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=637
 # define the amount of cores st_par runs on
 ncor <- parallel::detectCores()
 
+# Model output
+model_dir <- file.path('model_outputs')
+
 # create main directories
 data_dir <- ("data")
 extraction_dir <- file.path(data_dir, "extractions")
@@ -31,7 +34,7 @@ climate_prefix <- file.path(data_dir, "climate")
 bounds_dir <- file.path(data_dir, 'bounds')
 anthro_dir <- file.path(data_dir, "anthro")
 
-var_dir <- list(data_dir, extraction_dir, processed_dir, climate_prefix, bounds_dir, anthro_dir)
+var_dir <- list(model_dir, data_dir, extraction_dir, processed_dir, climate_prefix, bounds_dir, anthro_dir)
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
 # create main raw folder and all subfolders to hold raw/unprocessed data
