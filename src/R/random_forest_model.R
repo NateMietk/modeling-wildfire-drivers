@@ -29,7 +29,8 @@ training_parameters <- trainControl(method="repeatedcv",
                                     classProbs = TRUE,
                                     verboseIter  = TRUE,
                                     allowParallel = TRUE)
-
+# This model must be run on an EC2 instance r5d.4xlarge
+set.seed(123)
 fit_results <- train(ignition ~ .,
                      data = fpa_all_vars,
                      method = "ranger",
@@ -37,8 +38,9 @@ fit_results <- train(ignition ~ .,
                      weights = model_weights,
                      trControl = training_parameters,
                      tuneGrid = tuning_grid,
-                     num.trees=1000,
+                     num.trees = 1000,
                      importance = 'permutation')
+write_rds(fit_results, file.path(model_dir, 'ranger_model.rds'))
 
 # How does the fitted model look?
 trellis.par.set(caretTheme())
@@ -46,11 +48,3 @@ plot(fit_results)
 
 trellis.par.set(caretTheme())
 plot(fit_results, metric = "Kappa")
-
-
-
-
-
-
-
-
