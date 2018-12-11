@@ -1,7 +1,7 @@
 
 # load all ibraries
 packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply',
-       'parallel', 'foreach', "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 'velox')
+       'parallel', 'foreach', "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 'velox', 'caret', 'ranger')
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   # automatically installs packages if not found
   install.packages(setdiff(packages, rownames(installed.packages())))  
@@ -96,5 +96,3 @@ s3_proc_extractions <- 's3://modeling-human-ignition-random-forests/extractions/
 s3_proc_climate <- 's3://modeling-human-ignition-random-forests/climate/'
 s3_proc_bounds <- 's3://modeling-human-ignition-random-forests/bounds/'
 s3_proc_anthro <- 's3://modeling-human-ignition-random-forests/anthro/'
-
-
