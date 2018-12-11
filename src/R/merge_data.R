@@ -1,5 +1,5 @@
 
-if(!file.exists(file.path(extraction_dir, 'fpa_climate.rds'))) {
+if(!file.exists(file.path(extraction_dir, 'fpa_all_vars.rds'))) {
   if(!file.exists(file.path(extraction_dir, 'fpa_anthro.rds'))) {
     fpa_anthro <- as.data.frame(fpa_wui) %>%
       dplyr::select(fpa_id, fire_size_ha, fire_year, discovery_doy, discovery_doy, seasons, stat_cause_descr, ignition, state, us_l3name, na_l2name, na_l1name, region, class, class_coarse) %>%
@@ -13,24 +13,24 @@ if(!file.exists(file.path(extraction_dir, 'fpa_climate.rds'))) {
     
     write_rds(fpa_anthro, file.path(extraction_dir, 'fpa_anthro.rds'))
     system(paste0("aws s3 cp ", extraction_dir, " ", s3_proc_extractions, ' --recursive')) 
-    } else {
-      fpa_anthro <- read_rds(file.path(extraction_dir, 'fpa_anthro.rds'))
-    }
+  } else {
+    fpa_anthro <- read_rds(file.path(extraction_dir, 'fpa_anthro.rds'))
+  }
   
   if(!file.exists(file.path(extraction_dir, 'fpa_climate.rds'))) {
     if(!file.exists(file.path(extraction_climate_dir, 'fpa_climate_mean.rds'))) {
       
       fpa_climate_mean <- lapply(list.files(extraction_mean_climate_dir, full.names = TRUE),
-                           function(x) {
-                             if(x != "data/extractions/climate_extractions/mean/fpa_pr_mean_summaries.rds"){
-                               out_df <- read_rds(x) %>%
-                                 aggregate_climate(.)
-                             } else {
-                               out_df <- read_rds(x) %>%
-                                 aggregate_climate(., do_sums = FALSE)
-                             }
-                             return(out_df)
-                           }) %>%
+                                 function(x) {
+                                   if(x != "data/extractions/climate_extractions/mean/fpa_pr_mean_summaries.rds"){
+                                     out_df <- read_rds(x) %>%
+                                       aggregate_climate(.)
+                                   } else {
+                                     out_df <- read_rds(x) %>%
+                                       aggregate_climate(., do_sums = FALSE)
+                                   }
+                                   return(out_df)
+                                 }) %>%
         bind_cols(.) %>%
         dplyr::select(-fpa_id1, -fpa_id2, -fpa_id3, -fpa_id4, -fpa_id5, -fpa_id6, -fpa_id7, -fpa_id8)
       
@@ -47,7 +47,7 @@ if(!file.exists(file.path(extraction_dir, 'fpa_climate.rds'))) {
                                           out_df <- read_rds(x) %>%
                                             aggregate_climate(., do_sums = FALSE, do_sums_only = TRUE)
                                           return(out_df) 
-                                          }) %>%
+                                        }) %>%
         bind_cols(.) %>%
         dplyr::select(-fpa_id1, -fpa_id2, -fpa_id3, -fpa_id4)
       
@@ -67,14 +67,15 @@ if(!file.exists(file.path(extraction_dir, 'fpa_climate.rds'))) {
   }
   
   fpa_all_vars <- fpa_anthro %>%
-    left_join(., fpa_climate, by = 'fpa_id')
+    left_join(., fpa_climate, by = 'fpa_id') %>%
+    as_tibble()
   
-  write_rds(fpa_all_vars, file.path(extraction_dir, 'fpa_climate.rds'))
-  system(paste0("aws s3 cp ", extraction_dir, " ", s3_proc_extractions, ' --recursive')) 
+  write_rds(fpa_all_vars, file.path(extraction_dir, 'fpa_all_vars.rds'))
+  system(paste0("aws s3 sync ", extraction_dir, " ", s3_proc_extractions)) 
   
-  } else {
-    fpa_all_vars <- read_rds(file.path(extraction_dir, 'fpa_climate.rds'))
-  }
+} else {
+  fpa_all_vars <- read_rds(file.path(extraction_dir, 'fpa_all_vars.rds'))
+}
 
 
 
