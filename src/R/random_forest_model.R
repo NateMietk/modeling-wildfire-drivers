@@ -2,7 +2,7 @@
 dummify_vars <- function(df) {
   dummified <- df %>%
     dplyr::select(-ignition) %>%
-    dummyVars(" ~ .", data = ., sep = '_')
+    dummyVars(" ~ .", data = ., sep = '_', fullRank = TRUE)
   
   dummified <- data.frame(predict(dummified, newdata = df)) %>%
     as_tibble()
@@ -109,19 +109,23 @@ for(j in many_models) {
 }
 stats_df <- do.call('rbind', stats_df)
 
-varImp(ranger_model)
+plot(varImp(ranger_model))
+
 nrow(varImp(ranger_model)$importance)
 
 varImp(ranger_model)$importance %>% 
   as.data.frame() %>%
   rownames_to_column() %>%
-  arrange(Overall) %>%
-  mutate(rowname = forcats::fct_inorder(rowname )) %>%
-  slice(1:25) %>%
-  ggplot()+
-  geom_col(aes(x = rowname, y = Overall))+
-  coord_flip()+
-  theme_bw()
+  arrange(desc(Overall)) %>%
+  mutate(variable = forcats::fct_inorder(rowname )) %>%
+  slice(1:15) %>%
+  ggplot(aes(x=reorder(variable,Overall), y=Overall,fill=Overall)) + 
+  geom_bar(stat="identity", position="dodge")+ coord_flip()+
+  ylab("Variable Importance")+
+  xlab("")+
+  ggtitle("Information Value Summary")+
+  guides(fill=F)+
+  scale_fill_gradient(low="red", high="blue")
 
 
 # How does the fitted model look?
@@ -132,15 +136,15 @@ trellis.par.set(caretTheme())
 plot(ranger_model, metric = "Kappa")
 
 # predict the outcome on a test set
-ranger_pred <- predict(ranger_model, dummify_test, type="prob")
+ranger_pred <- predict(ranger_model, test)
 # compare predicted outcome and true outcome
-confusionMatrix(ranger_pred, dummify_test$ignition)
+confusionMatrix(ranger_pred, test$ignition)
 
 # Evaluate accuracy via ROC curves
 library(plotROC)
-selectedIndices <- ranger_model$pred$mtry == 2
+selectedIndices <- ranger_model$pred$mtry == 29
 g <- ggplot(ranger_model$pred[selectedIndices, ],
-            aes(m=M, d=factor(obs, levels = c("R", "M")))) + 
+            aes(m = M, d = factor(obs, levels = c("R", "M")))) + 
   geom_roc(n.cuts=0) + 
   coord_equal() +
   style_roc()
