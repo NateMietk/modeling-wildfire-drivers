@@ -1,113 +1,94 @@
-# Function
-dummify_vars <- function(df) {
-  dummified <- df %>%
-    dplyr::select(-ignition) %>%
-    dummyVars(" ~ .", data = ., sep = '_', fullRank = TRUE)
-  
-  dummified <- data.frame(predict(dummified, newdata = df)) %>%
-    as_tibble()
-  
-  dummified <- df %>% 
-    dplyr::select(ignition, row_id) %>%
-    left_join(., dummified, by = 'row_id') %>%
-    dplyr::select(ignition, everything(), -row_id)
-  return(dummified)
-}
 
 # Prep data frame
 fpa_all_vars <- read_rds(file.path(extraction_dir, 'fpa_all_vars.rds')) %>%
-  dplyr::select(-class, -owner_code, -stat_cause_descr) %>%
-  na.omit() %>% # random forests cannot deal with NA values
+  dplyr::select(-class, -stat_cause_descr) %>%
+  mutate_if(is.numeric, replace_na, 0) %>% # random forests cannot deal with NA values
   mutate(row_id = row_number()) %>%
+  na.omit() %>%
   droplevels() %>%
-  dplyr::select(-fpa_id)
+  dplyr::select(-fpa_id, -ESP_Name) 
 
-how_unbalanced <- fpa_all_vars %>%
+# Data partitioning
+set.seed(224)
+# Create training data - 60% 
+train <- fpa_all_vars %>% 
+  dplyr::sample_frac(0.6)
+
+# Create testing data - 40%
+test <- fpa_all_vars %>% 
+  anti_join(., train, by = 'row_id') 
+
+how_unbalanced <- train %>%
   group_by(ignition) %>%
   summarise(counts = n()) %>%
   mutate(pct_unbalanced = counts/sum(counts)) %>%
   dplyr::select(-counts) %>%
   spread(ignition, pct_unbalanced)
 
-# Data partitioning
-set.seed(224)
-
-# Create training data - 60% 
-train <- fpa_all_vars %>% 
-  dplyr::sample_frac(0.6)
-
-# Create testing data - 20%
-test <- fpa_all_vars %>% 
-  anti_join(., train, by = 'row_id') %>%
-  dplyr::sample_frac(0.5)
-
-# Create validation data - 20%
-validation <- fpa_all_vars %>% 
-  anti_join(., train, by = 'row_id') %>%
-  anti_join(., test, by = 'row_id') %>%
-  dplyr::select(ignition, everything(), -row_id)
-
-# Remove row_id column and reorganize
-# Random forests can not handle categorical data, so we need to dummify the factors...
-dummify_train <- train %>%
-  dplyr::select(ignition, everything(), -row_id) %>%
-  dummify_vars(.)
-
-dummify_test <- test %>%
-  dplyr::select(ignition, everything(), -row_id) %>%
-  dummify_vars(.)
-
-dummify_validation <- dummify_vars(validation)
-
 # https://stackoverflow.com/questions/8704681/random-forest-with-classes-that-are-very-unbalanced
 # Ranger random forests (https://www.rdocumentation.org/packages/ranger/versions/0.10.1/topics/ranger) 
 
 # Create the weights file for unbalanced data 
 # Penalize the model for predicting Human because it is 2/3 of the data set
-model_weights <- ifelse(dummify_train$ignition == "Human",
-                        (1/table(dummify_train$ignition)[1]) * how_unbalanced$Human,
-                        (1/table(dummify_train$ignition)[2]) * how_unbalanced$Lightning)
+model_weights <- ifelse(train$ignition == "Human",
+                        how_unbalanced$Human, how_unbalanced$Lightning)
 
-# Set the mtry and min nodes to iterate through.
-mtry_options <- unique(seq(4:12))
-min_node_options <- unique(c(5, 10, 20))
-
-
-for(mt in mtry_options) {
-  for(mn in min_node_options) {
-    set.seed(23587)
-    
-    tuning_grid <- expand.grid(
-      .mtry = mt,
-      .splitrule = "gini",
-      .min.node.size = mn)
-    
-    training_parameters <- trainControl(method="oob",
-                                        verboseIter  = TRUE,
-                                        allowParallel = TRUE)
-    
-    # This model must be run on an EC2 instance r5d.4xlarge
-    ranger_model <- train(ignition ~ .,
-                          data = dummify_train,
-                          method = "ranger",
-                          num.threads = parallel::detectCores(), # for parallel processing
-                          weights = model_weights,
-                          trControl = training_parameters,
-                          tuneGrid = tuning_grid,
-                          num.trees = 1000,
-                          importance = 'permutation')
-    write_rds(ranger_model, file.path(model_dir, paste0('ranger_oob_', trees, 'trees_', mt, 'mtry_', mn, 'nodes.rds')))
-  }
+# Tuning process for the lower 48 states
+if(!file.exists(file.path(model_dir, 'tuned_ranger_us.rds'))) {
+  set.seed(432)
+  mlr_tasked = makeClassifTask(data = train, target = "ignition", weights = model_weights)
+  
+  tuned_ranger_us <- tuneRanger(mlr_tasked, measure = list(multiclass.brier), num.trees = 2500,
+                                num.threads = parallel::detectCores(), iters = 100, 
+                                build.final.model = FALSE)
+  tuned_ranger_us <- write_rds(tuned_ranger_us, file.path(model_dir, 'tuned_ranger_us.rds'))
+} else {
+  tuned_ranger_us <- read_rds(file.path(model_dir, 'tuned_ranger_us.rds'))
 }
 
-many_models <- list.files(model_dir, full.names = TRUE)
-
-stats_df <- NULL
-for(j in many_models) {
-  stats <- read_rds(j)
-  stats_df[[j]] <- stats$results
+# Model with the tuned hyperparameter from tuneRanger
+# Model uses cross validation with 10 folds
+if(!file.exists(file.path(model_dir, 'model_ranger_us.rds'))) {
+  training_parameters <- trainControl(method="cv",
+                                      number = 10,
+                                      summaryFunction = twoClassSummary,
+                                      classProbs = TRUE,
+                                      verboseIter  = TRUE,
+                                      allowParallel = TRUE,
+                                      savePredictions = TRUE)
+  
+  # This model must be run on an EC2 instance r5d.4xlarge
+  tuning_grid <- expand.grid(
+    .mtry = tuned_ranger_us$recommended.pars$mtry,
+    .splitrule = c("gini", 'extratrees'),
+    .min.node.size = tuned_ranger_us$recommended.pars$min.node.size)
+  
+  model_ranger_us <- caret::train(ignition ~ .,
+                                  data = train,
+                                  method = "ranger",
+                                  num.threads = parallel::detectCores(), # for parallel processing
+                                  preProc=c("center", "scale"), 
+                                  weights = model_weights,
+                                  trControl = training_parameters,
+                                  tuneGrid = tuning_grid,
+                                  num.trees = 2500,
+                                  importance = 'permutation')
+  write_rds(model_ranger_us, file.path(model_dir, 'model_ranger_us.rds')) 
+} else {
+  model_ranger_us <- read_rds(file.path(model_dir, 'model_ranger_us.rds'))
 }
-stats_df <- do.call('rbind', stats_df)
+
+# Plot the ROC evaluation of the model 
+selectedIndices <- model_ranger_us$pred$mtry == tuned_ranger_us$recommended.pars$mtry
+
+model_ranger_roc <- model_ranger_us$pred[selectedIndices, ] %>%
+  mutate(bool = ifelse(obs == 'Human', 1, 0)) %>%
+  ggplot(aes(m = Human, d = bool)) + 
+  geom_roc(n.cuts=0) + 
+  coord_equal() +
+  style_roc() +
+  annotate("text", x=0.75, y=0.25, label=paste("AUC =", round((calc_auc(g))$AUC, 4)))
+
 
 plot(varImp(ranger_model))
 
@@ -153,8 +134,3 @@ g + annotate("text", x=0.75, y=0.25, label=paste("AUC =", round((calc_auc(g))$AU
 
 result.coords <- coords(result.roc, "best", best.method="closest.topleft", ret=c("threshold", "accuracy"))
 print(result.coords)#to get threshold and accuracy
-
-
-
-
-
