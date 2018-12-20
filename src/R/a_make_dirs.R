@@ -1,7 +1,9 @@
 
 # load all ibraries
-packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply',
-              'parallel', 'foreach', "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 'velox', 'caret', 'ranger')
+packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", 
+              "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply', 'parallel', 'foreach', "httr", "purrr", 
+              "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 
+              'velox', 'caret', 'ranger', 'mlr', 'tuneRanger', 'rpgm')
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   # automatically installs packages if not found
   install.packages(setdiff(packages, rownames(installed.packages())))  
@@ -91,11 +93,11 @@ var_dir <- list(ztrax_dir, raw_ztrax_dir, stacked_ztrax_rst_dir, wui_dir, landco
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
 # for pushing and pulling to s3 using the system function
-s3_base <- 's3://modeling-human-ignition-random-forests/'
-s3_anc_prefix <- 's3://modeling-human-ignition-random-forests/ancillary/'
-s3_proc_prefix <- 's3://modeling-human-ignition-random-forests/processed/'
-s3_raw_prefix <- 's3://modeling-human-ignition-random-forests/raw/'
-s3_proc_extractions <- 's3://modeling-human-ignition-random-forests/extractions/'
-s3_proc_climate <- 's3://modeling-human-ignition-random-forests/climate/'
-s3_proc_bounds <- 's3://modeling-human-ignition-random-forests/bounds/'
-s3_proc_anthro <- 's3://modeling-human-ignition-random-forests/anthro/'
+s3_base <- 's3://earthlab-natem/modeling-wildfire-drivers/'
+s3_anc_prefix <- paste0(s3_base, 'ancillary/')
+s3_proc_prefix <- paste0(s3_base, 'processed/')
+s3_raw_prefix <- paste0(s3_base, 'raw/')
+s3_proc_extractions <- paste0(s3_base, 'extractions/')
+s3_proc_climate <- paste0(s3_base, 'climate/')
+s3_proc_bounds <- paste0(s3_base, 'bounds/')
+s3_proc_anthro <- paste0(s3_base, 'anthro/')

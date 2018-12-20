@@ -125,6 +125,7 @@ if(!file.exists(file.path(extraction_terrain, 'extraction_terrain.rds'))) {
   write_rds(fpa_terrain, file.path(extraction_terrain, 'extraction_terrain.rds'))
   
   system(paste0("aws s3 sync ", extraction_dir, " ", s3_proc_extractions)) 
+
   } else {
     fpa_terrain <- read_rds(file.path(extraction_terrain, 'extraction_terrain.rds'))
   }
