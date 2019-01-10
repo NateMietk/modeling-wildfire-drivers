@@ -67,8 +67,8 @@ if (!exists('fpa_wui')) {
     st_write(fpa_wui, file.path(proc_fire_dir, "fpa_wui_conus.gpkg"),
              driver = "GPKG", delete_layer = TRUE)
     
-    system(paste0("aws s3 sync ", fire_crt, " ", s3_fire_prefix))
-    
+    system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
+
   } else {
     fpa_wui <- st_read(dsn = file.path(proc_fire_dir, "fpa_wui_conus.gpkg"))
   }
