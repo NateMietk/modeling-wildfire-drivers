@@ -3,7 +3,8 @@
 packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", 
               "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply', 'parallel', 'foreach', "httr", "purrr", 
               "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 
-              'velox', 'caret', 'ranger', 'mlr', 'tuneRanger', 'rpgm', 'plotROC')
+              'velox', 'caret', 'ranger', 'mlr', 'tuneRanger', 'rpgm', 'plotROC', 'R.utils')
+
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   # automatically installs packages if not found
   install.packages(setdiff(packages, rownames(installed.packages())))  
@@ -26,7 +27,7 @@ p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=637
 ncor <- parallel::detectCores()
 
 # Model output
-model_dir <- file.path('model_outputs')
+model_dir <- ('model_outputs')
 
 # create main directories
 data_dir <- ("data")
@@ -101,3 +102,4 @@ s3_proc_extractions <- paste0(s3_base, 'extractions/')
 s3_proc_climate <- paste0(s3_base, 'climate/')
 s3_proc_bounds <- paste0(s3_base, 'bounds/')
 s3_proc_anthro <- paste0(s3_base, 'anthro/')
+s3_proc_models <- paste0(s3_base, 'model_outputs/')
