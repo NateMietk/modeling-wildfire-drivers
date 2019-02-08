@@ -19,95 +19,93 @@ fpa_all_vars <- read_rds(file.path(extraction_dir, 'fpa_all_vars.rds')) %>%
   mutate_if(is.character, as.factor) %>%
   mutate(state = as.factor(toupper(state)))
 
-fpa_all_vars2 <- fpa_all_vars %>%
-  filter(na_l2name == unique(fpa_all_vars$na_l2name)[[1]]) %>%
-  slice(1:100)
-
 time_df <- NULL
-for(i in unique(fpa_all_vars$na_l2name)) {
-  if(length(fpa_all_vars$state) <= 1) {
-    fpa_all_vars <- fpa_all_vars %>%
-      dplyr::select(-state)
-  }
-  # Data partitioning
-  set.seed(224)
-  # Create training data - 60% 
-  train <- fpa_all_vars %>% 
-    dplyr::sample_frac(0.6)
+model_list <- list.files(file.path(model_dir), pattern = 'model_ranger_', full.names = TRUE)
+if(length(model_list) != 19) {
+  for(i in unique(fpa_all_vars$na_l2name)) {
+    
+    set.seed(224)
+    subset <- fpa_all_vars %>% 
+      filter(na_l2name == i ) %>%
+      droplevels() %>%
+      select_if(~ nlevels(.) > 1 | is.numeric(.))
   
-  # Create testing data - 40%
-  test <- fpa_all_vars %>% 
-    anti_join(., train, by = 'row_id') 
+     train <- subset %>%
+      dplyr::sample_frac(0.6)
   
-  how_unbalanced <- train %>%
-    group_by(ignition) %>%
-    summarise(counts = n()) %>%
-    mutate(pct_unbalanced = counts/sum(counts)) %>%
-    dplyr::select(-counts) %>%
-    spread(ignition, pct_unbalanced)
-  
-  # https://stackoverflow.com/questions/8704681/random-forest-with-classes-that-are-very-unbalanced
-  # Ranger random forests (https://www.rdocumentation.org/packages/ranger/versions/0.10.1/topics/ranger) 
-  
-  # Create the weights file for unbalanced data 
-  model_weights <- ifelse(train$ignition == "Human",
-                          how_unbalanced$Human, how_unbalanced$Lightning)
-  
-  set.seed(432)
-  mlr_tasked = makeClassifTask(data = train, target = "ignition", weights = model_weights)
-  
-  # Time estimation
-  tuneRanger_time <- estimateTimeTuneRanger(task = mlr_tasked, num.trees = 1000,
-                                 num.threads = parallel::detectCores(), iters= 10)
-  l2_ecoregion <- i
-  time_df = rbind(time_df, data.frame(tuneRanger_time, l2_ecoregion))
-  
-  return(time_df)
-}
-  
-  # Tuning process for the lower 48 states
-  if(!file.exists(file.path(model_dir, paste0('tuned_ranger_', i, '.rds')))) {
+    print(paste('Ecoregion = ', i, '; Counts = ', nrow(train)))
+    # Create testing data - 40%
+    test <- subset %>% 
+      anti_join(., train, by = 'row_id')  %>%
+      droplevels()
+    
+    how_unbalanced <- train %>%
+      group_by(ignition) %>%
+      summarise(counts = n()) %>%
+      mutate(pct_unbalanced = counts/sum(counts)) %>%
+      dplyr::select(-counts) %>%
+      spread(ignition, pct_unbalanced)
+    
+    # Create the weights file for unbalanced data 
+    model_weights <- ifelse(train$ignition == "Human",
+                            how_unbalanced$Human, how_unbalanced$Lightning)
+    
     set.seed(432)
     mlr_tasked = makeClassifTask(data = train, target = "ignition", weights = model_weights)
     
-    tuned_ranger <- tuneRanger(mlr_tasked, measure = list(multiclass.brier), num.trees = 1000,
-                                  num.threads = parallel::detectCores(), iters = 10, build.final.model = FALSE)
-    tuned_ranger <- write_rds(tuned_ranger, file.path(model_dir, paste0('tuned_ranger_', i, '.rds')))
-    # system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
-  } else {
-    tuned_ranger <- read_rds(file.path(model_dir, paste0('tuned_ranger_', i, '.rds')))
-  }
+    if(!file.exists(file.path(model_dir, 'tuneRanger_time.rds'))) {
+      # Time estimation
+      tuneRanger_time <- lubridate::seconds_to_period(estimateTimeTuneRanger(task = mlr_tasked, num.trees = 1000,
+                                                num.threads = parallel::detectCores(), iters= 10))
+      l2_ecoregion <- i
+      time_df = rbind(time_df, data.frame(tuneRanger_time, l2_ecoregion))
+      write_rds(time_df, file.path(model_dir, 'tuneRanger_time.rds'))
+    }
   
-  # Model with the tuned hyperparameter from tuneRanger
-  # Model uses cross validation with 10 folds
-  if(!file.exists(file.path(model_dir, paste0('model_ranger_', i, '.rds')))) {
-    training_parameters <- trainControl(summaryFunction = twoClassSummary,
-                                        classProbs = TRUE,
-                                        verboseIter  = TRUE,
-                                        allowParallel = TRUE,
-                                        savePredictions = TRUE)
-    tuning_grid <- expand.grid(
-      .mtry = tuned_ranger$recommended.pars$mtry,
-      .splitrule = "gini",
-      .min.node.size = tuned_ranger$recommended.pars$min.node.size)
+    # Tuning process for the lower 48 states
+    if(!file.exists(file.path(model_dir, paste0('tuned_ranger_', i, '.rds')))) {
+      set.seed(432)
+      mlr_tasked = makeClassifTask(data = train, target = "ignition", weights = model_weights)
+      
+      tuned_ranger <- tuneRanger(mlr_tasked, measure = list(multiclass.brier), num.trees = 2500,
+                                    num.threads = parallel::detectCores(), build.final.model = FALSE)
+      tuned_ranger <- write_rds(tuned_ranger, file.path(model_dir, paste0('tuned_ranger_', i, '.rds')))
+      system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
+    } else {
+      tuned_ranger <- read_rds(file.path(model_dir, paste0('tuned_ranger_', i, '.rds')))
+    }
     
-    model_ranger <- caret::train(ignition ~ .,
-                                    data = train,
-                                    method = "ranger",
-                                    num.threads = parallel::detectCores(), # for parallel processing
-                                    metric = 'ROC',
-                                    weights = model_weights,
-                                    trControl = training_parameters,
-                                    tuneGrid = tuning_grid,
-                                    num.trees = 1000,
-                                    importance = 'permutation')
-    write_rds(model_ranger, file.path(model_dir, paste0('model_ranger_', i, '.rds'))) 
-    # system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
-    
+    # Model with the tuned hyperparameter from tuneRanger
+    if(!file.exists(file.path(model_dir, paste0('model_ranger_', i, '.rds')))) {
+      training_parameters <- trainControl(summaryFunction = twoClassSummary,
+                                          classProbs = TRUE,
+                                          verboseIter  = TRUE,
+                                          allowParallel = TRUE,
+                                          savePredictions = TRUE)
+      tuning_grid <- expand.grid(
+        .mtry = tuned_ranger$recommended.pars$mtry,
+        .splitrule = "gini",
+        .min.node.size = tuned_ranger$recommended.pars$min.node.size)
+      
+      model_ranger <- caret::train(ignition ~ .,
+                                      data = train,
+                                      method = "ranger",
+                                      num.threads = parallel::detectCores(), # for parallel processing
+                                      metric = 'ROC',
+                                      weights = model_weights,
+                                      trControl = training_parameters,
+                                      tuneGrid = tuning_grid,
+                                      num.trees = 2500,
+                                      importance = 'permutation')
+      write_rds(model_ranger, file.path(model_dir, paste0('model_ranger_', i, '.rds'))) 
+      system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
+      }
+    }
   } else {
-    model_ranger <- read_rds(file.path(model_dir, paste0('model_ranger_', i, '.rds')))
-  }
-}
+    all_models <- lapply(list.files(file.path(model_dir), pattern = 'model_ranger_', full.names = TRUE),
+                         function(x)read_rds(x))    
+    }
+
 
 # Calculate the p value for the variable imporances 
 importance_pvalues(model_ranger_ne$finalModel, method = "altmann", formula = ignition ~ ., data = train)
