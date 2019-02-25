@@ -19,20 +19,20 @@ fpa_all_vars <- read_rds(file.path(extraction_dir, 'fpa_all_vars.rds')) %>%
   mutate_if(is.character, as.factor) %>%
   mutate(state = as.factor(toupper(state)))
 
-time_df <- NULL
 model_list <- list.files(file.path(model_dir), pattern = 'model_ranger_', full.names = TRUE)
-if(length(model_list) != 19) {
+if(length(model_list) != 20) {
   for(i in unique(fpa_all_vars$na_l2name)) {
+    time_df <- NULL
     
     set.seed(224)
     subset <- fpa_all_vars %>% 
       filter(na_l2name == i ) %>%
       droplevels() %>%
       select_if(~ nlevels(.) > 1 | is.numeric(.))
-  
-     train <- subset %>%
+    
+    train <- subset %>%
       dplyr::sample_frac(0.6)
-  
+    
     print(paste('Ecoregion = ', i, '; Counts = ', nrow(train)))
     # Create testing data - 40%
     test <- subset %>% 
@@ -56,19 +56,19 @@ if(length(model_list) != 19) {
     if(!file.exists(file.path(model_dir, 'tuneRanger_time.rds'))) {
       # Time estimation
       tuneRanger_time <- lubridate::seconds_to_period(estimateTimeTuneRanger(task = mlr_tasked, num.trees = 1000,
-                                                num.threads = parallel::detectCores(), iters= 10))
+                                                                             num.threads = parallel::detectCores(), iters= 10))
       l2_ecoregion <- i
       time_df = rbind(time_df, data.frame(tuneRanger_time, l2_ecoregion))
       write_rds(time_df, file.path(model_dir, 'tuneRanger_time.rds'))
     }
-  
+    
     # Tuning process for the lower 48 states
     if(!file.exists(file.path(model_dir, paste0('tuned_ranger_', i, '.rds')))) {
       set.seed(432)
       mlr_tasked = makeClassifTask(data = train, target = "ignition", weights = model_weights)
       
-      tuned_ranger <- tuneRanger(mlr_tasked, measure = list(multiclass.brier), num.trees = 2500,
-                                    num.threads = parallel::detectCores(), build.final.model = FALSE)
+      tuned_ranger <- tuneRanger(mlr_tasked, measure = list(multiclass.brier), num.trees = 1000, time.budget = 36000,
+                                 num.threads = parallel::detectCores(), build.final.model = FALSE)
       tuned_ranger <- write_rds(tuned_ranger, file.path(model_dir, paste0('tuned_ranger_', i, '.rds')))
       system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
     } else {
@@ -88,23 +88,38 @@ if(length(model_list) != 19) {
         .min.node.size = tuned_ranger$recommended.pars$min.node.size)
       
       model_ranger <- caret::train(ignition ~ .,
-                                      data = train,
-                                      method = "ranger",
-                                      num.threads = parallel::detectCores(), # for parallel processing
-                                      metric = 'ROC',
-                                      weights = model_weights,
-                                      trControl = training_parameters,
-                                      tuneGrid = tuning_grid,
-                                      num.trees = 2500,
-                                      importance = 'permutation')
+                                   data = train,
+                                   method = "ranger",
+                                   num.threads = parallel::detectCores(), # for parallel processing
+                                   metric = 'ROC',
+                                   weights = model_weights,
+                                   trControl = training_parameters,
+                                   tuneGrid = tuning_grid,
+                                   num.trees = 2500,
+                                   importance = 'permutation')
       write_rds(model_ranger, file.path(model_dir, paste0('model_ranger_', i, '.rds'))) 
       system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
-      }
+    } else {
+      model_ranger <- read_rds(file.path(model_dir, paste0('model_ranger_', i, '.rds')))
     }
-  } else {
-    all_models <- lapply(list.files(file.path(model_dir), pattern = 'model_ranger_', full.names = TRUE),
-                         function(x)read_rds(x))    
+    
+    if(!file.exists(file.path(model_dir, paste0('importance_pval_', i, '.rds')))) {
+      print(paste0('Computing variable importance p-value for ', i))
+      model_importance_pvalues <- importance_pvalues(model_ranger$finalModel, method = "altmann", formula = ignition ~ ., data = train)
+      write_rds(model_importance_pvalues, file.path(model_dir, paste0('importance_pval_', i, '.rds'))) 
+      system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
     }
+  }
+} else {
+  all_models <- lapply(list.files(file.path(model_dir), pattern = 'model_ranger_', full.names = TRUE),
+                       function(x)read_rds(x))    
+  all_importance_pval <- all_models <- lapply(list.files(file.path(model_dir), pattern = 'importance_pval_', full.names = TRUE),
+                                              function(x)read_rds(x))    
+}
+
+
+
+
 
 
 # Calculate the p value for the variable imporances 
@@ -160,11 +175,11 @@ test <- paste(vars, collapse = ' ')
 
 model_rpart_us <- caret::train(ignition ~ tmmx_mean_lag_0+vector_primary_rds_distance+vector_tertiary_rds_distance+vector_secondary_rds_distance+vector_railroad_distance+
                                  state+ffwi_mean_lag_0+def_mean_lag_0++vpd_min_3_month+def_mean_3_month+vpd_min_6_month,
-                                data = train,
-                                method = "rpart",
-                                weights = model_weights,
-                                trControl = training_parameters,
-                                tuneLength = 15)
+                               data = train,
+                               method = "rpart",
+                               weights = model_weights,
+                               trControl = training_parameters,
+                               tuneLength = 15)
 plot(model_rpart_us$finalModel)
 text(model_rpart_us$finalModel)
 library(rattle)
