@@ -63,20 +63,12 @@ model_ranger_roc <- preds %>%
 model_ranger_roc <- model_ranger_roc +
   annotate("text", x=0.75, y=0.25, label=paste("AUC =", round(calc_auc(model_ranger_roc)$AUC, 4)))
 
-scale_x_reordered <- function(..., sep = "___") {
-  reg <- paste0(sep, ".+$")
-  ggplot2::scale_x_discrete(labels = function(x) gsub(reg, "", x), ...)
-}
-
-reorder_within <- function(x, by, within, fun = mean, sep = "___", ...) {
-  new_x <- paste(x, within, sep = sep)
-  stats::reorder(new_x, by, FUN = fun)
-}
-
-importance_pval %>% 
+top_15_sig_importance <- importance_pval %>% 
   filter(pvalue <= 0.05) %>%
   group_by(lvl2_ecoregion) %>%
-  top_n(n = 15, wt = Overall) %>% 
+  top_n(n = 15, wt = Overall) 
+
+top_15_sig_importance %>% 
   ggplot(aes(x = reorder_within(variables, Overall, lvl2_ecoregion), y = Overall)) + 
   facet_wrap(~ lvl2_ecoregion, scales = 'free_y',
              nrow = 3) +
