@@ -1,8 +1,6 @@
 # plot rpart of top 15 vars
-ttt <- unique(top_15_sig_importance$lvl2_ecoregion)
-for(i in ttt) {
-  i <- 'Everglades'
-  
+for(i in unique(top_15_sig_importance$lvl2_ecoregion)) {
+
   set.seed(224)
   subset <- fpa_all_vars %>% 
     filter(na_l2name == i ) %>%
@@ -38,32 +36,45 @@ for(i in ttt) {
   importance_val_list <- as.vector(importance_subset$variables)
   importance_val_list <- paste0("c('ignition', ", paste(shQuote(importance_val_list), collapse=", "), ')')
 
-  train2 <- train %>%
-    dplyr::select_(importance_val_list)
+  if(!file.exists(file.path(model_dir, 'cart_', i, '.rds'))) {
+    training_parameters <- trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 15,
+                                        summaryFunction = twoClassSummary,
+                                        classProbs = TRUE,
+                                        verboseIter  = TRUE,
+                                        savePredictions = TRUE)
+    model_rpart <- caret::train(ignition ~ .,
+                                data = train %>%
+                                  dplyr::select_(importance_val_list),
+                                method = "rpart",
+                                weights = model_weights,
+                                tuneLength = 5, 
+                                trControl = training_parameters)
+    write_rds(model_rpart, file.path(model_dir, 'cart_', i, '.rds'))
+    
+    predict_rpart <- predict(model_rpart, test)
+    write_rds(predict_rpart, file.path(model_dir, 'cart_prediction_', i, '.rds'))
+    
+    confusion_rpar <- confusionMatrix(predict_rpart, test$ignition)
+    write_rds(confusion_rpar, file.path(model_dir, 'cart_confusion_', i, '.rds'))
+    }
+}
 
-  training_parameters <- trainControl(method = "repeatedcv",
-                                      number = 10,
-                                      repeats = 5,
-                                      summaryFunction = twoClassSummary,
-                                      classProbs = TRUE,
-                                      verboseIter  = TRUE)
-  model_rpart <- caret::train(ignition ~ .,
-                                 data = train2,
-                                 method = "rpart",
-                                 weights = model_weights,
-                                 tuneLength = 5, 
-                                 trControl = training_parameters)
-  write_rds(model_rpart, file.path(model_dir, 'cart_', i, '.rds'))
-  
-  predict_rpart <- predict(model_rpart, test)
-  write_rds(predict_rpart, file.path(model_dir, 'cart_prediction_', i, '.rds'))
-  
-  confusion_rpar <- confusionMatrix(predict_rpart, test$ignition)
-  write_rds(confusion_rpar, file.path(model_dir, 'cart_confusion_', i, '.rds'))
-  
-           }
+model_rpart_roc <- model_rpart$pred %>%
+  mutate(bool = ifelse(obs == 'Human', 1, 0)) %>%
+  ggplot(aes(m = Human, d = bool)) + 
+  geom_roc(n.cuts=0) + 
+  coord_equal() +
+  style_roc() +
+  facet_wrap(~ na_l2name) 
+model_rpart_roc <- model_rpart_roc +
+  annotate("text", x=0.75, y=0.25, label=paste("AUC =", round(calc_auc(model_rpart_roc)$AUC, 4)))
 
-prunedtree <- prune(model_rpart$finalModel, cp= model_rpart$finalModel$cptable[which.min(model_rpart$finalModel$cptable[,"rel error"]),"CP"])
+
+
+prunedtree <- prune(model_rpart$finalModel, 
+                    cp= model_rpart$finalModel$cptable[which.min(model_rpart$finalModel$cptable[,"rel error"]),"CP"])
 
 plot(prunedtree)
 text(prunedtree)
