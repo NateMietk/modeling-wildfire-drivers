@@ -109,6 +109,16 @@ if(length(model_list) != 20) {
       write_rds(model_importance_pvalues, file.path(model_dir, paste0('importance_pval_', i, '.rds'))) 
       system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
     }
+    
+    if(!file.exists(file.path(model_dir, paste0('confusion_matrix_', i, '.rds')))) {
+      # predict the outcome on a test set
+      ranger_pred <- predict(model_ranger, test)
+      # compare predicted outcome and true outcome
+      confusion_matrix <- confusionMatrix(ranger_pred, test$ignition)
+      
+      write_rds(confusion_matrix, file.path(model_dir, paste0('confusion_matrix_', i, '.rds'))) 
+      system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
+    }
   }
 } else {
   all_models <- lapply(list.files(file.path(model_dir), pattern = 'model_ranger_', full.names = TRUE),
@@ -173,7 +183,8 @@ vars <- varImp(model_ranger_ne)$importance %>%
   droplevels()
 test <- paste(vars, collapse = ' ')
 
-model_rpart_us <- caret::train(ignition ~ tmmx_mean_lag_0+vector_primary_rds_distance+vector_tertiary_rds_distance+vector_secondary_rds_distance+vector_railroad_distance+
+model_rpart_us <- caret::train(ignition ~ tmmx_mean_lag_0+vector_primary_rds_distance+vector_tertiary_rds_distance+
+                                 vector_secondary_rds_distance+vector_railroad_distance+
                                  state+ffwi_mean_lag_0+def_mean_lag_0++vpd_min_3_month+def_mean_3_month+vpd_min_6_month,
                                data = train,
                                method = "rpart",
