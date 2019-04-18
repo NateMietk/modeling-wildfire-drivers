@@ -37,15 +37,20 @@ preds<- do.call(rbind,lapply(mod_files,
 # Plot the ROC evaluation of the model 
 model_ranger_roc <- preds %>%
   mutate(bool = ifelse(obs == 'Human', 1, 0)) %>%
-  ggplot(aes(m = Human, d = bool)) + 
+  ggplot(aes(m = Human, d = bool, group = na_l2name, color = na_l2name)) + 
+  scale_color_manual(values = c('royalblue', 'red')) +
   geom_roc(n.cuts=0) + 
   coord_equal() +
   style_roc() +
+  theme(strip.background = element_blank(),
+        strip.text.x = element_text(size = 14)) +
   facet_wrap(~ na_l2name) 
 model_ranger_roc <- model_ranger_roc +
   annotate("text", x=0.75, y=0.25, label=paste("AUC =", round(calc_auc(model_ranger_roc)$AUC, 4)))
+model_ranger_roc
 
 top_15_sig_importance <- importance_pval %>% 
+  filter(variables != 'row_id') %>%
   filter(pvalue <= 0.05) %>%
   group_by(na_l2name) %>%
   top_n(n = 15, wt = Overall) 
@@ -61,4 +66,6 @@ top_15_sig_importance %>%
   ylab("Variable Importance") +
   xlab("") +
   guides(fill=F) +
-  theme_pub()
+  theme_pub() +
+  theme(strip.background = element_blank(),
+        strip.text.x = element_text(size = 16))
