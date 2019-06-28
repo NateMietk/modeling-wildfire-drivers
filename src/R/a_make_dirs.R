@@ -28,6 +28,8 @@ ncor <- parallel::detectCores()
 
 # Model output
 model_dir <- ('model_outputs')
+tuned_dir <- file.path(model_dir, 'tuned_models')
+janitza_dir <- file.path(model_dir, 'janitza')
 
 # create main directories
 data_dir <- ("data")
