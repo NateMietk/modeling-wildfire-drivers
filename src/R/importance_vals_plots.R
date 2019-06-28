@@ -1,6 +1,6 @@
 
 mod_files <- list.files(model_dir, pattern = 'model', full.names = TRUE)
-pval_files <- list.files(model_dir, pattern = 'importance', full.names = TRUE)
+pval_files <- list.files(model_dir, pattern = 'pval', full.names = TRUE)
 
 importance <- do.call(rbind,lapply(mod_files,
                              function(x) {
@@ -15,7 +15,7 @@ pval <- do.call(rbind,lapply(pval_files,
                              function(x) {
                                ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
                                  gsub('-', ' ', .) 
-                               df <- read_rds(x) %>%
+                               df <- readr::read_rds(x) %>%
                                  as.data.frame() %>%
                                  rownames_to_column('variables') %>%
                                  mutate(na_l2name = ecoreg_name) %>%
@@ -23,7 +23,8 @@ pval <- do.call(rbind,lapply(pval_files,
                                return(df)
                              }))
 importance_pval <- importance %>%
-  left_join(., pval , by = c('na_l2name', 'variables'))
+  left_join(., pval , by = c('na_l2name', 'variables')) %>%
+  na.omit()
 
 preds<- do.call(rbind,lapply(mod_files,
               function(x) {
@@ -38,7 +39,7 @@ preds<- do.call(rbind,lapply(mod_files,
 model_ranger_roc <- preds %>%
   mutate(bool = ifelse(obs == 'Human', 1, 0)) %>%
   ggplot(aes(m = Human, d = bool)) + 
-  geom_roc(n.cuts=0) + 
+  plotROC::geom_roc(n.cuts=0) + 
   coord_equal() +
   style_roc() +
   facet_wrap(~ na_l2name) 
@@ -46,7 +47,7 @@ model_ranger_roc <- model_ranger_roc +
   annotate("text", x=0.75, y=0.25, label=paste("AUC =", round(calc_auc(model_ranger_roc)$AUC, 4)))
 
 top_15_sig_importance <- importance_pval %>% 
-  filter(pvalue <= 0.05) %>%
+  # filter(pvalue <= 0.05) %>%
   group_by(na_l2name) %>%
   top_n(n = 15, wt = Overall) 
 
