@@ -44,7 +44,7 @@ model_ranger_roc_h <- preds %>%
 # Plot the ROC evaluation of the model 
 model_ranger_roc_l <- preds %>%
   ggplot(aes(m = Lightning, d = ifelse(obs == 'Lightning', 1, 0))) + 
-  geom_roc(n.cuts=0) + 
+  geom_roc(n.cuts=0) +
   facet_wrap(~ na_l2name) 
 
 model_ranger_roc <- preds %>%
@@ -55,9 +55,9 @@ model_ranger_roc <- preds %>%
   style_roc() +
   theme(strip.background = element_blank(),
         strip.text.x = element_text(size = 12)) +
-  facet_wrap(~ na_l2name, labeller = label_wrap_gen(width = 15), ncol = 8) +
-  annotate("text", x=0.65, y=0.35, label=paste("AUC (h) =", (round(calc_auc(model_ranger_roc_h)$AUC, 3)*100))) +
-  annotate("text", x=0.65, y=0.15, label=paste("AUC (l) =", (round(calc_auc(model_ranger_roc_l)$AUC, 3)*100)))
+  facet_wrap(~ na_l2name, labeller = label_wrap_gen(width = 15), ncol = 7) +
+  annotate("text", x=0.65, y=0.35, label=paste("AUC (h) =", round(calc_auc(model_ranger_roc_h)$AUC, 3)), color = 'red') +
+  annotate("text", x=0.65, y=0.15, label=paste("AUC (l) =", round(calc_auc(model_ranger_roc_l)$AUC, 3)), color = 'royalblue')
 model_ranger_roc
 
 
