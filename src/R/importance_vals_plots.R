@@ -36,34 +36,31 @@ preds<- do.call(rbind,lapply(mod_files,
                 return(df)}))
 
 # Plot the ROC evaluation of the model 
-model_ranger_roc <- preds %>%
-  mutate(bool = ifelse(obs == 'Human', 1, 0)) %>%
-  ggplot(aes(m = Human, d = bool, group = na_l2name, color = na_l2name)) + 
-  # scale_color_manual(values = c('royalblue', 'red')) +
+model_ranger_roc_h <- preds %>%
+  ggplot(aes(m = Human, d = ifelse(obs == 'Human', 1, 0))) + 
   geom_roc(n.cuts=0) + 
-  coord_equal() +
-  style_roc() +
-  theme(strip.background = element_blank(),
-        strip.text.x = element_text(size = 14)) +
   facet_wrap(~ na_l2name) 
-model_ranger_roc <- model_ranger_roc +
-  annotate("text", x=0.75, y=0.25, label=paste("AUC =", round(calc_auc(model_ranger_roc)$AUC, 4)))
-model_ranger_roc
 
 # Plot the ROC evaluation of the model 
-model_ranger_roc <- preds %>%
-  mutate(bool = ifelse(obs == 'Lightning', 1, 0)) %>%
-  ggplot(aes(m = Lightning, d = bool, group = na_l2name, color = na_l2name)) + 
-  # scale_color_manual(values = c('royalblue', 'red')) +
+model_ranger_roc_l <- preds %>%
+  ggplot(aes(m = Lightning, d = ifelse(obs == 'Lightning', 1, 0))) + 
   geom_roc(n.cuts=0) + 
+  facet_wrap(~ na_l2name) 
+
+model_ranger_roc <- preds %>%
+  ggplot() + 
+  geom_roc(aes(m = Human, d = ifelse(obs == 'Human', 1, 0)), n.cuts=0, color = 'red') + 
+  geom_roc(aes(m = Lightning, d = ifelse(obs == 'Lightning', 1, 0)), n.cuts=0, color = 'royalblue') + 
   coord_equal() +
   style_roc() +
   theme(strip.background = element_blank(),
-        strip.text.x = element_text(size = 14)) +
-  facet_wrap(~ na_l2name) 
-model_ranger_roc <- model_ranger_roc +
-  annotate("text", x=0.75, y=0.25, label=paste("AUC =", round(calc_auc(model_ranger_roc)$AUC, 4)))
+        strip.text.x = element_text(size = 12)) +
+  facet_wrap(~ na_l2name, labeller = label_wrap_gen(width = 15), ncol = 8) +
+  annotate("text", x=0.65, y=0.35, label=paste("AUC (h) =", (round(calc_auc(model_ranger_roc_h)$AUC, 3)*100))) +
+  annotate("text", x=0.65, y=0.15, label=paste("AUC (l) =", (round(calc_auc(model_ranger_roc_l)$AUC, 3)*100)))
 model_ranger_roc
+
+
 
 top_15_sig_importance <- importance_pval %>% 
   filter(variables != 'row_id') %>%
