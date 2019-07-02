@@ -1,6 +1,6 @@
 
-mod_files <- list.files(model_dir, pattern = 'model', full.names = TRUE)
-pval_files <- list.files(model_dir, pattern = 'pval', full.names = TRUE)
+mod_files <- list.files(janitza_dir, pattern = 'model', full.names = TRUE)
+pval_files <- list.files(janitza_dir, pattern = 'pval', full.names = TRUE)
 
 importance <- do.call(rbind,lapply(mod_files,
                              function(x) {
@@ -39,7 +39,22 @@ preds<- do.call(rbind,lapply(mod_files,
 model_ranger_roc <- preds %>%
   mutate(bool = ifelse(obs == 'Human', 1, 0)) %>%
   ggplot(aes(m = Human, d = bool, group = na_l2name, color = na_l2name)) + 
-  scale_color_manual(values = c('royalblue', 'red')) +
+  # scale_color_manual(values = c('royalblue', 'red')) +
+  geom_roc(n.cuts=0) + 
+  coord_equal() +
+  style_roc() +
+  theme(strip.background = element_blank(),
+        strip.text.x = element_text(size = 14)) +
+  facet_wrap(~ na_l2name) 
+model_ranger_roc <- model_ranger_roc +
+  annotate("text", x=0.75, y=0.25, label=paste("AUC =", round(calc_auc(model_ranger_roc)$AUC, 4)))
+model_ranger_roc
+
+# Plot the ROC evaluation of the model 
+model_ranger_roc <- preds %>%
+  mutate(bool = ifelse(obs == 'Lightning', 1, 0)) %>%
+  ggplot(aes(m = Lightning, d = bool, group = na_l2name, color = na_l2name)) + 
+  # scale_color_manual(values = c('royalblue', 'red')) +
   geom_roc(n.cuts=0) + 
   coord_equal() +
   style_roc() +
@@ -57,6 +72,7 @@ top_15_sig_importance <- importance_pval %>%
   top_n(n = 15, wt = Overall) 
 
 top_15_sig_importance %>% 
+  filter(na_l2name == 'Warm deserts') %>%
   ggplot(aes(x = reorder_within(variables, Overall, na_l2name), y = Overall)) + 
   facet_wrap(~ na_l2name, scales = 'free_y',
              nrow = 3) +
@@ -70,3 +86,10 @@ top_15_sig_importance %>%
   theme_pub() +
   theme(strip.background = element_blank(),
         strip.text.x = element_text(size = 16))
+
+ecoregion_importance <- ecoregions_l3 %>%
+  left_join(., top_15_sig_importance, by = 'na_l2name')
+
+
+
+
