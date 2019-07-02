@@ -33,8 +33,13 @@ if (!exists("ecoregions_l3")) {
       dplyr::mutate(NA_L3NAME = as.character(NA_L3NAME),
                     NA_L3NAME = ifelse(NA_L3NAME == 'Chihuahuan Desert',
                                        'Chihuahuan Deserts',
-                                       NA_L3NAME))
-    st_write(ecoregions_l3, file.path(bounds_dir, 'us_eco_l3.gpkg'))
+                                       NA_L3NAME)) %>%
+      mutate_if(is.factor, funs(tolower)) %>%
+      mutate_if(is.character, funs(capitalize)) %>%
+      mutate_if(is.character, as.factor) %>%
+      rename_all(tolower)
+    
+    st_write(ecoregions_l3, file.path(bounds_dir, 'us_eco_l3.gpkg'), delete_layer = TRUE)
   
 } else {
   ecoregions_l3 <- st_read(file.path(bounds_dir, 'us_eco_l3.gpkg'))
