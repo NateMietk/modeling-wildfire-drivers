@@ -20,7 +20,7 @@ fpa_all_vars <- read_rds(file.path(extraction_dir, 'fpa_all_vars.rds')) %>%
   mutate(state = as.factor(toupper(state)))
 
 
-model_list <- list.files(file.path(model_dir), pattern = 'model_ranger_', full.names = TRUE)
+model_list <- list.files(file.path(janitza_dir), pattern = 'model_ranger_', full.names = TRUE)
 if(length(model_list) != 20) {
   for(i in unique(fpa_all_vars$na_l2name)) {
     time_df <- NULL
