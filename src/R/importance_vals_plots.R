@@ -31,20 +31,18 @@ preds<- do.call(rbind,lapply(mod_files,
                 ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
                   gsub('-', ' ', .) 
                 df <- read_rds(x)$pred %>%
-                  mutate(na_l2name = ecoreg_name) %>%
+                  mutate(na_l2name = as.factor(ecoreg_name)) %>%
                   as_tibble()
                 return(df)}))
+
+auc_values <- preds %>%
+  group_by(na_l2name) %>%
+  summarize(AUC = auc(obs,Human))
 
 # Plot the ROC evaluation of the model 
 model_ranger_roc_h <- preds %>%
   ggplot(aes(m = Human, d = ifelse(obs == 'Human', 1, 0))) + 
   geom_roc(n.cuts=0) + 
-  facet_wrap(~ na_l2name) 
-
-# Plot the ROC evaluation of the model 
-model_ranger_roc_l <- preds %>%
-  ggplot(aes(m = Lightning, d = ifelse(obs == 'Lightning', 1, 0))) + 
-  geom_roc(n.cuts=0) +
   facet_wrap(~ na_l2name) 
 
 model_ranger_roc <- preds %>%
@@ -56,10 +54,20 @@ model_ranger_roc <- preds %>%
   theme(strip.background = element_blank(),
         strip.text.x = element_text(size = 12)) +
   facet_wrap(~ na_l2name, labeller = label_wrap_gen(width = 15), ncol = 7) +
-  annotate("text", x=0.65, y=0.35, label=paste("AUC (h) =", round(calc_auc(model_ranger_roc_h)$AUC, 3)), color = 'red') +
-  annotate("text", x=0.65, y=0.15, label=paste("AUC (l) =", round(calc_auc(model_ranger_roc_l)$AUC, 3)), color = 'royalblue')
+  annotate("text", x=0.75, y=0.35, label=paste("AUC =", round(calc_auc(model_ranger_roc_h)$AUC, 3)))
 model_ranger_roc
 
+ecoregion_auc <- ecoregions_l3 %>%
+  lwgeom::st_make_valid() %>%
+  group_by(na_l2name) %>%
+  summarise(geometry = sf::st_union(geometry)) %>%
+  ungroup() %>%
+  left_join(., auc_values, by = 'na_l2name')
+
+ggplot(data = ecoregion_auc) +
+  sf::st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
+  geom_sf(aes(fill = AUC)) +
+  scale_fill_viridis_c(option = "plasma")
 
 
 top_15_sig_importance <- importance_pval %>% 
