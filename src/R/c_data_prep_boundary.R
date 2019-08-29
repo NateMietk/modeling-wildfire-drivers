@@ -37,7 +37,16 @@ if (!exists("ecoregions_l3")) {
                       NA_L2NAME = case_when(
                         NA_L2NAME == 'UPPER GILA MOUNTAINS (?)' ~ 'UPPER GILA MOUNTAINS',
                         TRUE ~ as.character(NA_L2NAME)),
-                      NA_L2NAME = as.factor(NA_L2NAME)) %>%
+                      NA_L2NAME = as.factor(NA_L2NAME),
+                      region = as.factor(if_else(NA_L1NAME %in% c("EASTERN TEMPERATE FORESTS",
+                                                                  "TROPICAL WET FORESTS",
+                                                                  "NORTHERN FORESTS"), "East",
+                                                 if_else(NA_L1NAME %in% c("NORTH AMERICAN DESERTS",
+                                                                          "SOUTHERN SEMI-ARID HIGHLANDS",
+                                                                          "TEMPERATE SIERRAS",
+                                                                          "MEDITERRANEAN CALIFORNIA",
+                                                                          "NORTHWESTERN FORESTED MOUNTAINS",
+                                                                          "MARINE WEST COAST FOREST"), "West", "Central")))) %>%
         mutate_if(is.factor, funs(tolower)) %>%
         mutate_if(is.character, funs(capitalize)) %>%
         mutate_if(is.character, funs(gsub('-', ' ', .))) %>%
