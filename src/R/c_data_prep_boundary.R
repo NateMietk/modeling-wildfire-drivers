@@ -24,20 +24,26 @@ if (!exists("raster_mask")) {
 # Download and import the Level 3 Ecoregions data
 if (!exists("ecoregions_l3")) {
   if(!file.exists(file.path(bounds_dir, 'us_eco_l3.gpkg'))) {
-    ecoregions_l3 <- load_data(url = "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
-                               dir = raw_ecoregionl3,
-                               layer = "us_eco_l3",
-                               outname = "ecoregions_l3") %>%
-      sf::st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
-      sf::st_transform(st_crs(states)) %>%
-      dplyr::mutate(NA_L3NAME = as.character(NA_L3NAME),
-                    NA_L3NAME = ifelse(NA_L3NAME == 'Chihuahuan Desert',
-                                       'Chihuahuan Deserts',
-                                       NA_L3NAME)) %>%
-      mutate_if(is.factor, funs(tolower)) %>%
-      mutate_if(is.character, funs(capitalize)) %>%
-      mutate_if(is.character, as.factor) %>%
-      rename_all(tolower)
+
+      ecoregions_l3 <- load_data(url = "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
+                                 dir = raw_ecoregionl3,
+                                 layer = "us_eco_l3",
+                                 outname = "ecoregions_l3") %>%
+        sf::st_transform(st_crs(states)) %>%
+        dplyr::mutate(NA_L3NAME = as.character(NA_L3NAME),
+                      NA_L3NAME = ifelse(NA_L3NAME == 'Chihuahuan Desert',
+                                         'Chihuahuan Deserts',
+                                         NA_L3NAME),
+                      NA_L2NAME = case_when(
+                        NA_L2NAME == 'UPPER GILA MOUNTAINS (?)' ~ 'UPPER GILA MOUNTAINS',
+                        TRUE ~ as.character(NA_L2NAME)),
+                      NA_L2NAME = as.factor(NA_L2NAME)) %>%
+        mutate_if(is.factor, funs(tolower)) %>%
+        mutate_if(is.character, funs(capitalize)) %>%
+        mutate_if(is.character, funs(gsub('-', ' ', .))) %>%
+        mutate_if(is.character, funs(gsub('/', ' ', .))) %>%
+        mutate_if(is.character, as.factor) %>%
+        rename_all(tolower) 
     
     st_write(ecoregions_l3, file.path(bounds_dir, 'us_eco_l3.gpkg'), delete_layer = TRUE)
   
