@@ -2,7 +2,7 @@
 # load all ibraries
 packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", 
               "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply', 'parallel', 'foreach', "httr", "purrr", 
-              "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 'spatstat', 
+              "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 
               'velox', 'caret', 'ranger', 'mlr', 'tuneRanger', 'plotROC', 'R.utils', 'mapview')
 
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
@@ -28,7 +28,8 @@ ncor <- parallel::detectCores()
 
 # Model output
 model_dir <- ('model_outputs')
-tuned_dir <- file.path(model_dir, 'tuned_models')
+rpart_model_dir <- file.path(model_dir, 'rpart')
+tuned_dir <- file.path(model_dir, 'tuned_ranger')
 janitza_dir <- file.path(model_dir, 'janitza')
 
 # create main directories
@@ -39,7 +40,8 @@ climate_prefix <- file.path(data_dir, "climate")
 bounds_dir <- file.path(data_dir, 'bounds')
 anthro_dir <- file.path(data_dir, "anthro")
 
-var_dir <- list(model_dir, data_dir, extraction_dir, processed_dir, climate_prefix, bounds_dir, anthro_dir)
+var_dir <- list(model_dir, rpart_model_dir, tuned_dir, janitza_dir, 
+                data_dir, extraction_dir, processed_dir, climate_prefix, bounds_dir, anthro_dir)
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
 # create main raw folder and all subfolders to hold raw/unprocessed data
