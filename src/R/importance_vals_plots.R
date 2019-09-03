@@ -1,16 +1,32 @@
 
 mod_files <- list.files(janitza_dir, pattern = 'model', full.names = TRUE)
+conf_files <- list.files(janitza_dir, pattern = 'confusion', full.names = TRUE)
+pred_files <- list.files(janitza_dir, pattern = 'prediction', full.names = TRUE)
 pval_files <- list.files(janitza_dir, pattern = 'pval', full.names = TRUE)
 
+confusion_matrix <- do.call(rbind,lapply(conf_files,
+                                         function(x) {
+                                           ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
+                                             gsub('-', ' ', .)
+                                           
+                                           file_in <- read_rds(x)
+                                           df_out <- as_tibble(data.frame(ecoreg_name, file_in$overall)) %>%
+                                             rownames_to_column() %>%
+                                             tidyr::spread(key = rowname, value = file_in.overall) %>%
+                                             dplyr::select(na_l2name = as.factor(ecoreg_name), 
+                                                           everything())
+                                           return(df_out)
+                                         }))
+
 importance <- do.call(rbind,lapply(mod_files,
-                             function(x) {
-                               ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
-                                 gsub('-', ' ', .) 
-                               df <- varImp(read_rds(x))$importance %>%
-                                 rownames_to_column('variables') %>%
-                                 mutate(na_l2name = ecoreg_name) %>%
-                                 as_tibble()
-                               return(df)}))
+                                   function(x) {
+                                     ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
+                                       gsub('-', ' ', .) 
+                                     df <- varImp(read_rds(x))$importance %>%
+                                       rownames_to_column('variables') %>%
+                                       mutate(na_l2name = as.factor(ecoreg_name)) %>%
+                                       as_tibble()
+                                     return(df)}))
 pval <- do.call(rbind,lapply(pval_files,
                              function(x) {
                                ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
@@ -18,22 +34,23 @@ pval <- do.call(rbind,lapply(pval_files,
                                df <- readr::read_rds(x) %>%
                                  as.data.frame() %>%
                                  rownames_to_column('variables') %>%
-                                 mutate(na_l2name = ecoreg_name) %>%
+                                 mutate(na_l2name = as.factor(ecoreg_name)) %>%
                                  as_tibble()
                                return(df)
                              }))
+
 importance_pval <- importance %>%
   left_join(., pval , by = c('na_l2name', 'variables')) %>%
   na.omit()
 
-preds<- do.call(rbind,lapply(mod_files,
-              function(x) {
-                ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
-                  gsub('-', ' ', .) 
-                df <- read_rds(x)$pred %>%
-                  mutate(na_l2name = as.factor(ecoreg_name)) %>%
-                  as_tibble()
-                return(df)}))
+preds <- do.call(rbind,lapply(pred_files,
+                              function(x) {
+                                ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
+                                  gsub('-', ' ', .) 
+                                df <- read_rds(x) %>%
+                                  mutate(na_l2name = as.factor(ecoreg_name)) %>%
+                                  as_tibble()
+                                return(df)}))
 
 # Plot the ROC evaluation of the model 
 model_ranger_roc_h <- preds %>%
@@ -66,7 +83,7 @@ auc_values <- unique(ecoregions_l3$na_l2name) %>%
 ecoregion_auc <- ecoregions_l3 %>%
   sf::st_buffer(0) %>%
   group_by(na_l2name) %>%
-  summarise(geometry = sf::st_union(geometry)) %>%
+  summarise(geometry = sf::st_union(geom)) %>%
   ungroup() %>%
   left_join(., auc_values, by = 'na_l2name')
 
@@ -82,17 +99,17 @@ regions <- as.data.frame(ecoregions_l3) %>%
 
 top_15_sig_importance <- importance_pval %>% 
   filter(variables != 'row_id') %>%
-  filter(pvalue <= 0.05) %>%
+  filter(pvalue <= 0.1) %>%
   group_by(na_l2name) %>%
   top_n(n = 10, wt = Overall) %>%
   left_join(., regions, by = 'na_l2name')
 
 top_15_sig_importance %>% 
+  filter(region == 'Central') %>%
   ggplot(aes(x = reorder_within(variables, Overall, na_l2name), y = Overall)) + 
-  facet_wrap(~ na_l2name, scales = 'free_y',
-             nrow = 3) +
-  geom_bar(stat="identity", position="dodge", width = 0.01, fill = 'black') + 
-  geom_point() +
+  facet_wrap(~ na_l2name, labeller = label_wrap_gen(width = 15), nrow = 3, scales = 'free_y') +
+  geom_bar(stat="identity", position="dodge", width = 0.05, fill = 'black') + 
+  geom_point(size = 3) +
   coord_flip() +
   scale_x_reordered() +
   ylab("Variable Importance") +
