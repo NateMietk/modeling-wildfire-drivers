@@ -51,20 +51,20 @@ if(length(model_list) != 20) {
     model_weights <- ifelse(train$ignition == "Human",
                             how_unbalanced$Human, how_unbalanced$Lightning)
     
-    set.seed(432)
-    mlr_tasked = makeClassifTask(data = train, target = "ignition", weights = model_weights)
-    
-    # if(!file.exists(file.path(model_dir, 'tuneRanger_time.rds'))) {
-    #   # Time estimation
-    #   tuneRanger_time <- lubridate::seconds_to_period(estimateTimeTuneRanger(task = mlr_tasked, num.trees = 1000,
-    #                                                                          num.threads = parallel::detectCores(), iters= 10))
-    #   l2_ecoregion <- i
-    #   time_df = rbind(time_df, data.frame(tuneRanger_time, l2_ecoregion))
-    #   write_rds(time_df, file.path(model_dir, 'tuneRanger_time.rds'))
-    # }
-    
-    # Tuning process for the lower 48 states
     if(!file.exists(file.path(tuned_dir, paste0('tuned_ranger_', i, '.rds')))) {
+      set.seed(432)
+      mlr_tasked = makeClassifTask(data = train, target = "ignition", weights = model_weights)
+    
+      # if(!file.exists(file.path(model_dir, 'tuneRanger_time.rds'))) {
+      #   # Time estimation
+      #   tuneRanger_time <- lubridate::seconds_to_period(estimateTimeTuneRanger(task = mlr_tasked, num.trees = 1000,
+      #                                                                          num.threads = parallel::detectCores(), iters= 10))
+      #   l2_ecoregion <- i
+      #   time_df = rbind(time_df, data.frame(tuneRanger_time, l2_ecoregion))
+      #   write_rds(time_df, file.path(model_dir, 'tuneRanger_time.rds'))
+      # }
+      
+      # Tuning process for the lower 48 states
       set.seed(432)
       mlr_tasked = makeClassifTask(data = train, target = "ignition", weights = model_weights)
       
@@ -116,9 +116,15 @@ if(length(model_list) != 20) {
     
     if(!file.exists(file.path(janitza_dir, paste0('confusion_ranger_', i, '.rds')))) {
       # predict the outcome on a test set
-      ranger_pred <- predict(model_ranger, test)
+      ranger_pred_class <- predict(model_ranger, test)
+      ranger_pred <- as_tibble(data.frame(pred = ranger_pred_class,
+                                          obs = test$ignition,
+                                          Human = predict(model_ranger, test, type = "prob")[, 1],
+                                          Lightning = predict(model_ranger, test, type = "prob")[, 2]))
+      write_rds(ranger_pred, file.path(janitza_dir, paste0('prediction_ranger_', i, '.rds'))) 
+      
       # compare predicted outcome and true outcome
-      confusion_matrix <- confusionMatrix(ranger_pred, test$ignition)
+      confusion_matrix <- confusionMatrix(ranger_pred_class, test$ignition)
       
       write_rds(confusion_matrix, file.path(janitza_dir, paste0('confusion_ranger_', i, '.rds'))) 
       system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models))
