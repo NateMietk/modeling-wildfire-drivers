@@ -3,7 +3,7 @@
 packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", 
               "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply', 'parallel', 'foreach', "httr", "purrr", 
               "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 
-              'velox', 'caret', 'ranger', 'mlr', 'tuneRanger', 'plotROC', 'R.utils', 'mapview')
+              'velox', 'caret', 'ranger', 'mlr', 'tuneRanger', 'plotROC', 'R.utils', 'mapview', 'party')
 
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   # automatically installs packages if not found
@@ -29,6 +29,11 @@ ncor <- parallel::detectCores()
 # Model output
 model_dir <- ('model_outputs')
 rpart_model_dir <- file.path(model_dir, 'rpart')
+rpart_plots_dir <- file.path(rpart_model_dir, 'rpart_plots')
+
+ctree_model_dir <- file.path(model_dir, 'ctree')
+ctree_plots_dir <- file.path(ctree_model_dir, 'ctree_plots')
+
 tuned_dir <- file.path(model_dir, 'tuned_ranger')
 janitza_dir <- file.path(model_dir, 'janitza')
 
@@ -40,7 +45,7 @@ climate_prefix <- file.path(data_dir, "climate")
 bounds_dir <- file.path(data_dir, 'bounds')
 anthro_dir <- file.path(data_dir, "anthro")
 
-var_dir <- list(model_dir, rpart_model_dir, tuned_dir, janitza_dir, 
+var_dir <- list(model_dir, rpart_model_dir, rpart_plots_dir, ctree_model_dir, ctree_plots_dir, tuned_dir, janitza_dir, 
                 data_dir, extraction_dir, processed_dir, climate_prefix, bounds_dir, anthro_dir)
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
