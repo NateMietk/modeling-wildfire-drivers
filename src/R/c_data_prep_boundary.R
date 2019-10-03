@@ -10,17 +10,6 @@ if (!exists("states")){
   states$STUSPS <- droplevels(states$STUSPS)
 }
 
-# Create raster mask
-if (!exists("raster_mask")) {
-  raster_mask <- raster::raster()
-  crs(raster_mask) <- crs(p4string_ea)
-  extent(raster_mask) <- c(-2032092, 2515908, -2116850, 731150)
-  nrow(raster_mask) <- 2848
-  ncol(raster_mask) <- 4548
-  res(raster_mask) <- 1000
-}
-
-
 # Download and import the Level 3 Ecoregions data
 if (!exists("ecoregions_l3")) {
   if(!file.exists(file.path(bounds_dir, 'us_eco_l3.gpkg'))) {
@@ -59,6 +48,17 @@ if (!exists("ecoregions_l3")) {
 } else {
   ecoregions_l3 <- st_read(file.path(bounds_dir, 'us_eco_l3.gpkg'))
   }
+}
+
+
+# Create raster mask
+if (!exists("raster_mask")) {
+  raster_mask <- raster::raster()
+  crs(raster_mask) <- crs(p4string_ea)
+  extent(raster_mask) <- c(-2032092, 2515908, -2116850, 731150)
+  nrow(raster_mask) <- 2848
+  ncol(raster_mask) <- 4548
+  res(raster_mask) <- 1000
 }
 
 # Create raster mask
