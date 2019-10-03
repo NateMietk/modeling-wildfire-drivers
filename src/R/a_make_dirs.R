@@ -3,7 +3,7 @@
 packages <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", 
               "rvest", 'parallel', 'doParallel', 'lwgeom','pbapply', 'parallel', 'foreach', "httr", "purrr", 
               "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall", 
-              'velox', 'caret', 'ranger', 'mlr', 'tuneRanger', 'plotROC', 'R.utils', 'mapview', 'party')
+              'velox', 'caret', 'ranger', 'mlr', 'tuneRanger', 'plotROC', 'R.utils', 'mapview', 'partykit')
 
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   # automatically installs packages if not found
