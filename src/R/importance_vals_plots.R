@@ -101,7 +101,7 @@ top_15_sig_importance <- importance_pval %>%
   filter(variables != 'row_id') %>%
   filter(pvalue <= 0.1) %>%
   group_by(na_l2name) %>%
-  top_n(n = 10, wt = Overall) %>%
+  top_n(n = 15, wt = Overall) %>%
   left_join(., regions, by = 'na_l2name')
 
 top_15_sig_importance %>% 
@@ -121,7 +121,3 @@ top_15_sig_importance %>%
 
 ecoregion_importance <- ecoregions_l3 %>%
   left_join(., top_15_sig_importance, by = 'na_l2name')
-
-
-
-
