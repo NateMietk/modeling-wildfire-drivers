@@ -1,9 +1,10 @@
 # plot rpart of top 15 vars
 for(i in unique(top_15_sig_importance$na_l2name)) {
+  ecoreg <- gsub(' ', '-', i)
+  print(ecoreg)
   
-  set.seed(224)
   subset <- fpa_all_vars %>% 
-    filter(na_l2name == gsub(' ', '-', i)) %>%
+    filter(na_l2name == ecoreg) %>%
     droplevels() %>%
     select_if(~ nlevels(.) > 1 | is.numeric(.))
   
@@ -24,14 +25,14 @@ for(i in unique(top_15_sig_importance$na_l2name)) {
   
   # Create the weights file for unbalanced data 
   model_weights <- ifelse(train$ignition == "Human",
-                                     how_unbalanced$Human, how_unbalanced$Lightning)
+                          how_unbalanced$Human, how_unbalanced$Lightning)
   
   importance_subset <- top_15_sig_importance %>% 
     filter(na_l2name == i) %>%
     droplevels() %>%
+    filter(!str_detect(variables, "state")) %>%
     mutate(variables = case_when(
       str_detect(variables, "season") ~ "seasons",
-      str_detect(variables, "state") ~ "state",
       str_detect(variables, "ESPLF_Name") ~ "ESPLF_Name",
       str_detect(variables, "nlcd") ~ "nlcd",
       str_detect(variables, "ZONE_NAME") ~ "ZONE_NAME",
@@ -43,35 +44,40 @@ for(i in unique(top_15_sig_importance$na_l2name)) {
   importance_val_list <- paste0("c('ignition', ", paste(shQuote(importance_val_list), collapse=", "), ')')
   
   if(!file.exists(file.path(ctree_model_dir, paste0('ctree_model_', gsub(' ', '-', i), '.rds')))) {
-    training_parameters <- trainControl(method = "cv",
-                                        number = 2,
-                                        verboseIter = TRUE,
-                                        savePredictions = TRUE)
-    tune.grid <- expand.grid(mincriterion = c(0.01, 0.45, 0.55, 0.75, 0.91, 0.95, 0.99),
-                             maxdepth = as.integer(seq(5, 12, 2)))
+    if(ecoreg == 'Western-cordillera') {    
+      training_parameters <- trainControl(verboseIter = TRUE,
+                                          savePredictions = TRUE)
+      } else {
+        training_parameters <- trainControl(method = "cv",
+                                            number = ifelse(ecoreg == 'Southeastern-usa-plains', 2, 10),
+                                            verboseIter = TRUE,
+                                            savePredictions = TRUE)
+        }
 
-    set.seed(1234)
+
     model_ctree <- caret::train(ignition ~ .,
                                 data = train %>%
                                   dplyr::select_(importance_val_list),
-                                method = "ctree2",
+                                method = "ctree",
                                 weights = model_weights,
-                                tuneGrid = tune.grid,
                                 trControl = training_parameters)
     
-    fitted_model_ctree <- party::ctree(ignition ~ ., 
-                                       data = train %>%
-                                         dplyr::select_(importance_val_list), 
-                                       controls = ctree_control(maxdepth = model_ctree$bestTune[1,1],
-                                                                mincriterion = model_ctree$bestTune[1,2]))
-    plot(as.simpleparty(fitted_model_ctree))
+    fitted_model_ctree <- partykit::ctree(ignition ~ ., 
+                                          data = train %>%
+                                            dplyr::select_(importance_val_list), 
+                                          weights = model_weights,
+                                          control = partykit::ctree_control(maxdepth = 3, 
+                                                                            mincriterion = model_ctree$bestTune[1,1]
+                                                                            # ,testtype = "MonteCarlo"
+                                                                            # ,nresample = 10000
+                                          ))
 
-    write_rds(model_ctree, file.path(ctree_model_dir, paste0('ctree_model_', gsub(' ', '-', i), '.rds')))
+    write_rds(fitted_model_ctree, file.path(ctree_model_dir, paste0('ctree_model_', ecoreg, '.rds')))
   } else {
-    model_ctree <- read_rds(file.path(ctree_model_dir, paste0('ctree_model_', gsub(' ', '-', i), '.rds')))
+    fitted_model_ctree <- read_rds(file.path(ctree_model_dir, paste0('ctree_model_', ecoreg, '.rds')))
   }
   
-  if(!file.exists(file.path(ctree_model_dir, paste0('ctree_confusion_', gsub(' ', '-', i), '.rds')))) {
+  if(!file.exists(file.path(ctree_model_dir, paste0('ctree_confusion_', ecoreg, '.rds')))) {
     predict_ctree_class <- predict(fitted_model_ctree, test)
     predict_ctree <- as_tibble(data.frame(pred = predict_ctree_class,
                                           obs = test$ignition,
@@ -80,51 +86,69 @@ for(i in unique(top_15_sig_importance$na_l2name)) {
     
     write_rds(predict_ctree, file.path(ctree_model_dir, paste0('ctree_prediction_', gsub(' ', '-', i), '.rds')))
     
-    confusion_rpar <- confusionMatrix(predict_ctree_class, test$ignition)
-    write_rds(confusion_rpar, file.path(ctree_model_dir, paste0('ctree_confusion_', gsub(' ', '-', i), '.rds')))
+    confusion_ctree <- confusionMatrix(predict_ctree_class, test$ignition)
+    write_rds(confusion_ctree, file.path(ctree_model_dir, paste0('ctree_confusion_', gsub(' ', '-', i), '.rds')))
   }
   
-  if(!file.exists(file.path(rpart_model_dir, paste0('rpart_model_', gsub(' ', '-', i), '.rds')))) {
-    training_parameters <- trainControl(method = "cv",
-                                        number = 10,
-                                        summaryFunction = twoClassSummary,
-                                        classProbs = TRUE,
-                                        verboseIter = TRUE,
-                                        savePredictions = TRUE)
-    set.seed(1234)
-    model_rpart <- caret::train(ignition ~ .,
-                                data = train %>%
-                                  dplyr::select_(importance_val_list),
-                                method = "rpart",
-                                weights = model_weights,
-                                metric = "ROC",
-                                tuneLength = 5,
-                                trControl = training_parameters)
-    
-    write_rds(model_rpart, file.path(rpart_model_dir, paste0('rpart_model_', gsub(' ', '-', i), '.rds')))
-  } else {
-    model_rpart <- read_rds(file.path(rpart_model_dir, paste0('rpart_model_', gsub(' ', '-', i), '.rds')))
-  }
-  
-  if(!file.exists(file.path(rpart_model_dir, paste0('rpart_confusion_', gsub(' ', '-', i), '.rds')))) {
-    predict_rpart_class <- predict(model_rpart, test)
-    predict_rpart <- as_tibble(data.frame(pred = predict_rpart_class,
-                                          obs = test$ignition,
-                                          Human = predict(model_rpart, test, type = "prob")[, 1],
-                                          Lightning = predict(model_rpart, test, type = "prob")[, 2]))
-    
-    write_rds(predict_rpart, file.path(rpart_model_dir, paste0('rpart_prediction_', gsub(' ', '-', i), '.rds')))
-    
-    confusion_rpar <- confusionMatrix(predict_rpart_class, test$ignition)
-    write_rds(confusion_rpar, file.path(rpart_model_dir, paste0('rpart_confusion_', gsub(' ', '-', i), '.rds')))
-  }
+  # if(!file.exists(file.path(rpart_model_dir, paste0('rpart_model_', ecoreg, '.rds')))) {
+  #   training_parameters <- trainControl(method = "cv",
+  #                                       number = 10,
+  #                                       summaryFunction = twoClassSummary,
+  #                                       classProbs = TRUE,
+  #                                       verboseIter = TRUE,
+  #                                       savePredictions = TRUE)
+  # 
+  #   model_rpart <- caret::train(ignition ~ .,
+  #                               data = train %>%
+  #                                 dplyr::select_(importance_val_list),
+  #                               method = "rpart",
+  #                               weights = model_weights,
+  #                               metric = "ROC",
+  #                               trControl = training_parameters)
+  #   # 
+  #   # fitted_model_rpart <- rpart::rpart(ignition ~ ., 
+  #   #                                    data = train %>%
+  #   #                                      dplyr::select_(importance_val_list), 
+  #   #                                    weights = model_weights,
+  #   #                                    method="class",
+  #   #                                    control = rpart::rpart.control(
+  #   #                                      minsplit = 1
+  #   #                                      ,minbucket = 1
+  #   #                                    ))
+  #   
+  #   pruned_model_rpart <- rpart::prune(model_rpart$finalModel, cp = model_rpart$bestTune[1,1])    
+  #   
+  #   # pruned_model_rpart <- as_tibble(fitted_model_rpart$cptable) %>%
+  #   #   filter(nsplit > 0) %>%
+  #   #   filter(xerror <= min(xerror) + xstd) %>%
+  #   #   filter(xerror == max(xerror)) %>%
+  #   #   select(CP) %>%
+  #   #   unlist() %>%
+  #   #   rpart::prune(fitted_model_rpart, cp = .)   
+  #   
+  #   write_rds(pruned_model_rpart, file.path(rpart_model_dir, paste0('rpart_model_', ecoreg, '.rds')))
+  # } else {
+  #   pruned_model_rpart <- read_rds(file.path(rpart_model_dir, paste0('rpart_model_', ecoreg, '.rds')))
+  # }
+  # 
+  # if(!file.exists(file.path(rpart_model_dir, paste0('rpart_confusion_', ecoreg, '.rds')))) {
+  #   predict_rpart_class <- predict(pruned_model_rpart, test, type="class")
+  #   predict_rpart <- as_tibble(data.frame(pred = predict_rpart_class,
+  #                                         obs = test$ignition,
+  #                                         Human = predict(pruned_model_rpart, test, type = "prob")[, 1],
+  #                                         Lightning = predict(pruned_model_rpart, test, type = "prob")[, 2]))
+  #   
+  #   write_rds(predict_rpart, file.path(rpart_model_dir, paste0('rpart_prediction_', ecoreg, '.rds')))
+  #   
+  #   confusion_rpar <- confusionMatrix(predict_rpart_class, test$ignition)
+  #   write_rds(confusion_rpar, file.path(rpart_model_dir, paste0('rpart_confusion_', ecoreg, '.rds')))
+  # }
   
   system(paste0('aws s3 sync ', model_dir, ' ', s3_proc_models, ' --delete'))
-  
 }
 
-rpart_confusion_files <- list.files(rpart_model_dir, pattern = 'confusion', full.names = TRUE)
-confusion_matrix <- do.call(rbind,lapply(rpart_confusion_files,
+ctree_confusion_files <- list.files(ctree_model_dir, pattern = 'confusion', full.names = TRUE)
+confusion_matrix <- do.call(rbind,lapply(ctree_confusion_files,
                                          function(x) {
                                            ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
                                              gsub('-', ' ', .)
@@ -138,8 +162,8 @@ confusion_matrix <- do.call(rbind,lapply(rpart_confusion_files,
                                            return(df_out)
                                          }))
 
-rpart_prediction_files <- list.files(rpart_model_dir, pattern = 'prediction', full.names = TRUE)
-rpart_model_prediction <- do.call(rbind,lapply(rpart_prediction_files,
+ctree_prediction_files <- list.files(ctree_model_dir, pattern = 'prediction', full.names = TRUE)
+ctree_model_prediction <- do.call(rbind,lapply(ctree_prediction_files,
                                                function(x) {
                                                  ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
                                                    gsub('-', ' ', .) 
@@ -148,29 +172,28 @@ rpart_model_prediction <- do.call(rbind,lapply(rpart_prediction_files,
                                                    as_tibble()
                                                  return(df)}))
 
-model_rpart_roc <- rpart_model_prediction %>%
+model_ctree_roc <- ctree_model_prediction %>%
   ggplot() + 
   geom_roc(aes(m = Human, d = ifelse(obs == 'Human', 1, 0)), n.cuts=0, color = 'red') +
   coord_equal() +
   style_roc() +
   facet_wrap(~ na_l2name, labeller = label_wrap_gen(width = 15), ncol = 7)
 
-roc_values <- calc_auc(model_rpart_roc)
+roc_values <- calc_auc(model_ctree_roc)
 
-model_rpart_roc <- model_rpart_roc +
+model_ctree_roc <- model_ctree_roc +
   annotate("text", x=0.75, y=0.25, label=paste("AUC =", round(roc_values$AUC, 3)))
-model_rpart_roc
+model_ctree_roc
 
-lapply(rpart_mod_files, 
+lapply(ctree_mod_files, 
        function(x) {
          ecoreg_name <- unlist(strsplit(x, '_|\\.'))[4] %>%
            gsub('-', ' ', .)
          
          df <- read_rds(x)$finalModel 
          
-         pdf(file.path(rpart_plots_dir, paste0(gsub(' ', '-', ecoreg_name), ".pdf")))
-         rpart.plot::rpart.plot(df, main = ecoreg_name)
+         pdf(file.path(ctree_plots_dir, paste0(gsub(' ', '-', ecoreg_name), ".pdf")))
+         ctree.plot::ctree.plot(df, main = ecoreg_name)
          dev.off()
        }
 )
-
